@@ -1,12 +1,14 @@
--- XodinqHUB - Grow a Garden 2 (FINAL - ALL TOGGLES WORK PROPERLY)
+-- XodinqHUB - Grow a Garden 2 (ULTIMATE - ALL FEATURES)
 -- PROJECT BY LAN
--- Semua fitur: ON = jalan, OFF = mati total + karakter normal
+-- Auto Steal (instant collect), Auto Plant (deteksi seed inventory), Auto Water, Auto Harvest, Auto Sell All Inventory, Auto Buy, Anti AFK
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local VirtualInputManager = game:GetService("VirtualInputManager")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local TweenService = game:GetService("TweenService")
+local RunService = game:GetService("RunService")
 
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
@@ -20,17 +22,26 @@ local InfJumpEnabled = false
 local AutoStealEnabled = false
 local AutoCollectEnabled = false
 local AutoPlantEnabled = false
+local AutoWaterEnabled = false
+local AutoHarvestEnabled = false
 local AutoSellEnabled = false
+local AutoBuyEnabled = false
+local AntiAFKEnabled = false
 local MyGardenPosition = nil
-
--- Status untuk loop
-local stealRunning = false
-local collectRunning = false
-local plantRunning = false
-local sellRunning = false
 
 task.wait(0.5)
 MyGardenPosition = RootPart.Position
+
+-- === RESET MOVEMENT ===
+local function resetMovement()
+    Humanoid.WalkSpeed = SpeedValue
+    Humanoid.JumpPower = JumpValue
+    pcall(function()
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
+        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
+    end)
+end
 
 -- === CORE FUNCTIONS ===
 local function setSpeed(s)
@@ -41,17 +52,6 @@ end
 local function setJump(j)
     JumpValue = math.clamp(j, 7.2, 200)
     Humanoid.JumpPower = JumpValue
-end
-
--- RESET MOVEMENT KE NORMAL
-local function resetMovement()
-    Humanoid.WalkSpeed = SpeedValue
-    Humanoid.JumpPower = JumpValue
-    pcall(function()
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Jumping, true)
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Running, true)
-        Humanoid:SetStateEnabled(Enum.HumanoidStateType.Climbing, true)
-    end)
 end
 
 local function teleportTo(pos)
@@ -66,14 +66,20 @@ local function teleportToOwnGarden()
     end
 end
 
-local function collectObject(obj)
+-- === INSTANT COLLECT (0.02 DETIK) ===
+local function instantCollect(obj)
     if not obj or not obj.Parent then return end
-    pcall(function() RootPart.CFrame = CFrame.new(obj.Position.X, obj.Position.Y + 1.5, obj.Position.Z) end)
-    task.wait(0.05)
+    pcall(function()
+        RootPart.CFrame = CFrame.new(obj.Position.X, obj.Position.Y + 1.5, obj.Position.Z)
+        task.wait(0.02)
+    end)
+
     local click = obj:FindFirstChild("ClickDetector")
     if click then pcall(function() fireclickdetector(click) end) return end
+
     local prompt = obj:FindFirstChild("ProximityPrompt")
     if prompt then pcall(function() fireproximityprompt(prompt) end) return end
+
     for _, v in ipairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") then
             local name = v.Name:lower()
@@ -82,15 +88,17 @@ local function collectObject(obj)
             end
         end
     end
+
     if VirtualInputManager then
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, "E", false, game)
-            task.wait(0.05)
+            task.wait(0.02)
             VirtualInputManager:SendKeyEvent(false, "E", false, game)
         end)
     end
 end
 
+-- === FLING ===
 local function flingTarget(targetChar)
     if not targetChar then return end
     local targetRoot = targetChar:FindFirstChild("HumanoidRootPart")
@@ -109,11 +117,13 @@ local function flingPlayer(targetPlayer)
     if targetChar then flingTarget(targetChar) end
 end
 
+-- === NIGHT DETECTION ===
 local function isNightTime()
     local hour = tonumber(Lighting.TimeOfDay:match("^(%d+)")) or 12
     return (hour >= 18 or hour <= 5)
 end
 
+-- === FIND OBJECTS ===
 local function findFruitsToSteal()
     local fruits = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
@@ -142,12 +152,256 @@ local function findMyFruits()
     return fruits
 end
 
--- === AUTO STEAL LOOP (FIXED - MATI TOTAL) ===
+local function findPlots()
+    local plots = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and (obj.Name:lower():find("plot") or obj.Name:lower():find("garden") or obj.Name:lower():find("farm")) then
+            table.insert(plots, obj)
+        end
+    end
+    return plots
+end
+
+local function findMyPlants()
+    local plants = {}
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Position then
+            local name = obj.Name:lower()
+            if name:find("plant") or name:find("growing") or name:find("seedling") or name:find("sprout") then
+                local dist = (obj.Position - RootPart.Position).Magnitude
+                if dist < 25 then table.insert(plants, obj) end
+            end
+        end
+    end
+    return plants
+end
+
+-- === INVENTORY FUNCTIONS ===
+local function getInventory()
+    -- Cari inventory player (biasanya di PlayerGui atau folder)
+    local inventory = Player:FindFirstChild("Inventory")
+    if not inventory then
+        -- Cari di tempat lain
+        for _, child in ipairs(Player:GetChildren()) do
+            if child.Name:lower():find("inventory") or child.Name:lower():find("backpack") then
+                inventory = child
+                break
+            end
+        end
+    end
+    return inventory
+end
+
+local function getSeedsFromInventory()
+    local seeds = {}
+    local inventory = getInventory()
+    if not inventory then return seeds end
+
+    for _, item in ipairs(inventory:GetChildren()) do
+        local name = item.Name:lower()
+        -- Deteksi seed (biasanya ada kata "seed" atau "Seed")
+        if name:find("seed") or name:find("benih") then
+            local count = 1
+            if item:IsA("IntValue") or item:IsA("NumberValue") then
+                count = item.Value
+            elseif item:IsA("StringValue") then
+                count = 1
+            end
+            if count > 0 then
+                table.insert(seeds, {
+                    name = item.Name,
+                    count = count,
+                    object = item
+                })
+            end
+        end
+    end
+    return seeds
+end
+
+local function getFruitsFromInventory()
+    local fruits = {}
+    local inventory = getInventory()
+    if not inventory then return fruits end
+
+    local fruitKeywords = {"fruit", "crop", "harvest", "carrot", "tomato", "wheat", "berry", "apple", "corn", 
+                          "pumpkin", "melon", "grape", "banana", "mango", "coconut", "dragon", "pepper", "sunflower"}
+
+    for _, item in ipairs(inventory:GetChildren()) do
+        local name = item.Name:lower()
+        local isFruit = false
+        for _, keyword in ipairs(fruitKeywords) do
+            if name:find(keyword) and not name:find("seed") then
+                isFruit = true
+                break
+            end
+        end
+        if isFruit then
+            local count = 1
+            if item:IsA("IntValue") or item:IsA("NumberValue") then
+                count = item.Value
+            end
+            if count > 0 then
+                table.insert(fruits, {
+                    name = item.Name,
+                    count = count,
+                    object = item
+                })
+            end
+        end
+    end
+    return fruits
+end
+
+-- === AUTO PLANT LOOP (DETEKSI SEED INVENTORY + TANAM RAPI) ===
+local plantedSeeds = {}
+local function plantSeed(seedName, plot)
+    pcall(function()
+        -- Coba panggil remote event untuk tanam
+        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+            if v:IsA("RemoteEvent") and (v.Name:lower():find("plant") or v.Name:lower():find("grow")) then
+                v:FireServer(plot, seedName)
+                return true
+            end
+        end
+        -- Fallback: pake click simulator
+        local click = plot:FindFirstChild("ClickDetector")
+        if click then
+            fireclickdetector(click)
+            return true
+        end
+    end)
+    return false
+end
+
 coroutine.wrap(function()
     while true do
         task.wait(0.5)
+        if AutoPlantEnabled then
+            -- Ambil daftar seed di inventory
+            local seeds = getSeedsFromInventory()
+            if #seeds == 0 then
+                task.wait(2)
+                continue
+            end
+
+            -- Ambil daftar plot kosong
+            local plots = findPlots()
+            local emptyPlots = {}
+            for _, plot in ipairs(plots) do
+                local isOccupied = false
+                for _, plant in ipairs(plot:GetDescendants()) do
+                    if plant:IsA("BasePart") and (plant.Name:lower():find("plant") or plant.Name:lower():find("growing")) then
+                        isOccupied = true
+                        break
+                    end
+                end
+                if not isOccupied then
+                    table.insert(emptyPlots, plot)
+                end
+            end
+
+            -- Urutkan plot berdasarkan jarak (yang paling dekat dulu)
+            table.sort(emptyPlots, function(a, b)
+                local distA = (a.Position - RootPart.Position).Magnitude
+                local distB = (b.Position - RootPart.Position).Magnitude
+                return distA < distB
+            end)
+
+            -- Tanam seed satu per satu ke plot kosong
+            for _, seed in ipairs(seeds) do
+                if not AutoPlantEnabled then break end
+                if #emptyPlots == 0 then break end
+
+                for _, plot in ipairs(emptyPlots) do
+                    if not AutoPlantEnabled then break end
+                    -- Teleport ke plot
+                    teleportTo(plot.Position)
+                    task.wait(0.1)
+
+                    -- Tanam
+                    local success = plantSeed(seed.name, plot)
+                    if success then
+                        -- Kurangi seed count
+                        if seed.object:IsA("IntValue") or seed.object:IsA("NumberValue") then
+                            seed.object.Value = math.max(0, seed.object.Value - 1)
+                        end
+                        -- Tandai plot sebagai terpakai
+                        table.remove(emptyPlots, table.find(emptyPlots, plot))
+                        task.wait(0.15)
+                        break
+                    end
+                end
+                task.wait(0.1)
+            end
+        else
+            resetMovement()
+        end
+        task.wait(0.5)
+    end
+end)()
+
+-- === AUTO SELL ALL INVENTORY ===
+local function sellAllFruits()
+    local fruits = getFruitsFromInventory()
+    local totalSold = 0
+
+    for _, fruit in ipairs(fruits) do
+        if fruit.count > 0 then
+            pcall(function()
+                -- Coba panggil remote event untuk jual
+                local sold = false
+                for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+                    if v:IsA("RemoteEvent") and (v.Name:lower():find("sell") or v.Name:lower():find("market") or v.Name:lower():find("shop")) then
+                        v:FireServer(fruit.name, fruit.count)
+                        sold = true
+                        break
+                    end
+                end
+                if not sold then
+                    -- Fallback: jual satu per satu
+                    for i = 1, fruit.count do
+                        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+                            if v:IsA("RemoteEvent") and (v.Name:lower():find("sell") or v.Name:lower():find("market")) then
+                                v:FireServer(fruit.name, 1)
+                                break
+                            end
+                        end
+                        task.wait(0.05)
+                    end
+                end
+                totalSold = totalSold + fruit.count
+                -- Reset count
+                if fruit.object:IsA("IntValue") or fruit.object:IsA("NumberValue") then
+                    fruit.object.Value = 0
+                end
+            end)
+            task.wait(0.1)
+        end
+    end
+
+    if totalSold > 0 then
+        print("[XodinqHUB] Sold " .. totalSold .. " fruits/items!")
+    end
+end
+
+coroutine.wrap(function()
+    while true do
+        task.wait(2)
+        if AutoSellEnabled then
+            sellAllFruits()
+        else
+            resetMovement()
+        end
+        task.wait(2)
+    end
+end)()
+
+-- === AUTO STEAL LOOP (INSTANT COLLECT) ===
+coroutine.wrap(function()
+    while true do
+        task.wait(0.3)
         if AutoStealEnabled and isNightTime() then
-            stealRunning = true
             local targets = findFruitsToSteal()
             if #targets > 0 then
                 for _, fruit in ipairs(targets) do
@@ -155,80 +409,114 @@ coroutine.wrap(function()
                     for _, otherPlayer in ipairs(Players:GetPlayers()) do
                         if otherPlayer ~= Player then flingPlayer(otherPlayer) end
                     end
-                    task.wait(0.2)
+                    task.wait(0.05)
                     if AutoStealEnabled then
-                        collectObject(fruit)
-                        task.wait(0.08)
+                        instantCollect(fruit)
+                        task.wait(0.03)
                     end
                 end
                 if AutoStealEnabled then
                     teleportToOwnGarden()
-                    task.wait(0.3)
+                    task.wait(0.2)
                 end
             end
         else
-            if stealRunning then
-                stealRunning = false
-                resetMovement()
-                teleportToOwnGarden()
-                print("[XodinqHUB] Auto Steal stopped - movement restored")
-            end
+            resetMovement()
         end
-        task.wait(0.5)
+        task.wait(0.3)
     end
 end)()
 
--- === AUTO COLLECT LOOP (FIXED - MATI TOTAL) ===
+-- === AUTO COLLECT LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(0.3)
         if AutoCollectEnabled then
-            collectRunning = true
             local fruits = findMyFruits()
             for _, fruit in ipairs(fruits) do
                 if not AutoCollectEnabled then break end
-                collectObject(fruit)
-                task.wait(0.08)
+                instantCollect(fruit)
+                task.wait(0.05)
             end
         else
-            if collectRunning then
-                collectRunning = false
-                resetMovement()
-                print("[XodinqHUB] Auto Collect stopped - movement restored")
-            end
-        end
-        task.wait(0.3)
-    end
-end)()
-
--- === AUTO PLANT LOOP ===
-coroutine.wrap(function()
-    while true do
-        task.wait(1)
-        if AutoPlantEnabled then
-            plantRunning = true
-            -- Implementasi plant nanti
-        else
-            if plantRunning then
-                plantRunning = false
-                resetMovement()
-            end
+            resetMovement()
         end
     end
 end)()
 
--- === AUTO SELL LOOP ===
+-- === AUTO WATER LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(2)
-        if AutoSellEnabled then
-            sellRunning = true
-            -- Implementasi sell nanti
-        else
-            if sellRunning then
-                sellRunning = false
-                resetMovement()
+        if AutoWaterEnabled then
+            local plants = findMyPlants()
+            for _, plant in ipairs(plants) do
+                if not AutoWaterEnabled then break end
+                pcall(function()
+                    for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+                        if v:IsA("RemoteEvent") and v.Name:lower():find("water") then
+                            v:FireServer(plant)
+                        end
+                    end
+                end)
+                task.wait(0.1)
             end
+        else
+            resetMovement()
+        end
+    end
+end)()
+
+-- === AUTO HARVEST LOOP ===
+coroutine.wrap(function()
+    while true do
+        task.wait(0.5)
+        if AutoHarvestEnabled then
+            local fruits = findMyFruits()
+            for _, fruit in ipairs(fruits) do
+                if not AutoHarvestEnabled then break end
+                instantCollect(fruit)
+                task.wait(0.05)
+            end
+        else
+            resetMovement()
+        end
+    end
+end)()
+
+-- === AUTO BUY LOOP ===
+coroutine.wrap(function()
+    while true do
+        task.wait(5)
+        if AutoBuyEnabled then
+            -- Cari toko di workspace
+            for _, shop in ipairs(workspace:GetDescendants()) do
+                if shop:IsA("Model") and shop.Name:lower():find("shop") then
+                    pcall(function()
+                        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+                            if v:IsA("RemoteEvent") and v.Name:lower():find("buy") then
+                                v:FireServer("Seed", "Carrot", 1)
+                            end
+                        end
+                    end)
+                end
+            end
+        else
+            resetMovement()
+        end
+    end
+end)()
+
+-- === ANTI AFK ===
+coroutine.wrap(function()
+    while true do
+        task.wait(60)
+        if AntiAFKEnabled then
+            pcall(function()
+                Humanoid:MoveTo(RootPart.Position + Vector3.new(0, 0, 1))
+                task.wait(0.1)
+                Humanoid:MoveTo(RootPart.Position + Vector3.new(0, 0, -1))
+            end)
         end
     end
 end)()
@@ -259,15 +547,14 @@ ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.85, 0, 0.8, 0)
-MainFrame.Position = UDim2.new(0.075, 0, 0.1, 0)
+MainFrame.Size = UDim2.new(0.9, 0, 0.85, 0)
+MainFrame.Position = UDim2.new(0.05, 0, 0.075, 0)
 MainFrame.BackgroundColor3 = Color3.fromRGB(18, 16, 35)
 MainFrame.BackgroundTransparency = 0.05
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
 pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = MainFrame end)
 
--- Glass effect
 local glass = Instance.new("Frame")
 glass.Size = UDim2.new(1, 0, 1, 0)
 glass.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
@@ -276,14 +563,12 @@ glass.BorderSizePixel = 0
 glass.Parent = MainFrame
 pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = glass end)
 
--- Border glow
 local stroke = Instance.new("UIStroke")
 stroke.Color = Color3.fromRGB(150, 100, 255)
 stroke.Thickness = 1.5
 stroke.Transparency = 0.4
 stroke.Parent = MainFrame
 
--- Header
 local Header = Instance.new("Frame")
 Header.Size = UDim2.new(1, 0, 0, 55)
 Header.BackgroundColor3 = Color3.fromRGB(45, 35, 90)
@@ -354,33 +639,33 @@ Scroll.Position = UDim2.new(0, 6, 0, 60)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 3
 Scroll.ScrollBarImageColor3 = Color3.fromRGB(150, 100, 200)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 520)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 820)
 Scroll.Parent = MainFrame
 
 local Layout = Instance.new("UIListLayout")
-Layout.Padding = UDim.new(0, 8)
+Layout.Padding = UDim.new(0, 6)
 Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Parent = Scroll
 
 local function createCard(parent, order, title, icon)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 65)
+    card.Size = UDim2.new(1, 0, 0, 60)
     card.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
     card.BackgroundTransparency = 0.4
     card.BorderSizePixel = 0
     card.LayoutOrder = order
     card.Parent = parent
     pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = card end)
-    
+
     local cardStroke = Instance.new("UIStroke")
     cardStroke.Color = Color3.fromRGB(80, 60, 140)
     cardStroke.Thickness = 0.5
     cardStroke.Transparency = 0.6
     cardStroke.Parent = card
-    
+
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -12, 0, 22)
-    label.Position = UDim2.new(0, 8, 0, 5)
+    label.Position = UDim2.new(0, 8, 0, 4)
     label.Text = icon .. " " .. title
     label.TextColor3 = Color3.fromRGB(220, 210, 255)
     label.BackgroundTransparency = 1
@@ -391,84 +676,90 @@ local function createCard(parent, order, title, icon)
     return card
 end
 
-local speedCard = createCard(Scroll, 1, "WALK SPEED (16-400)", "🏃")
-local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0.35, 0, 0, 32)
-SpeedBox.Position = UDim2.new(0, 8, 0, 28)
-SpeedBox.Text = "16"
-SpeedBox.TextColor3 = Color3.fromRGB(255, 220, 150)
-SpeedBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
-SpeedBox.Font = Enum.Font.GothamBold
-SpeedBox.TextSize = 16
-SpeedBox.Parent = speedCard
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = SpeedBox end)
-
-local jumpCard = createCard(Scroll, 2, "JUMP POWER (7.2-200)", "🦘")
-local JumpBox = Instance.new("TextBox")
-JumpBox.Size = UDim2.new(0.35, 0, 0, 32)
-JumpBox.Position = UDim2.new(0, 8, 0, 28)
-JumpBox.Text = "50"
-JumpBox.TextColor3 = Color3.fromRGB(255, 220, 150)
-JumpBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
-JumpBox.Font = Enum.Font.GothamBold
-JumpBox.TextSize = 16
-JumpBox.Parent = jumpCard
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = JumpBox end)
-
 local function createToggle(parent, order, text, icon, baseColor)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 45)
+    card.Size = UDim2.new(1, 0, 0, 40)
     card.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
     card.BackgroundTransparency = 0.4
     card.BorderSizePixel = 0
     card.LayoutOrder = order
     card.Parent = parent
     pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = card end)
-    
+
     local cardStroke = Instance.new("UIStroke")
     cardStroke.Color = Color3.fromRGB(80, 60, 140)
     cardStroke.Thickness = 0.5
     cardStroke.Transparency = 0.6
     cardStroke.Parent = card
-    
+
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -12, 0, 35)
+    btn.Size = UDim2.new(1, -12, 0, 30)
     btn.Position = UDim2.new(0, 6, 0, 5)
     btn.Text = icon .. " " .. text .. ": OFF"
     btn.TextColor3 = Color3.fromRGB(240, 235, 255)
     btn.BackgroundColor3 = baseColor or Color3.fromRGB(55, 45, 85)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 12
+    btn.TextSize = 11
     btn.Parent = card
     pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = btn end)
-    
+
     btn.MouseEnter:Connect(function()
         TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70, 55, 110)}):Play()
     end)
     btn.MouseLeave:Connect(function()
         TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = baseColor or Color3.fromRGB(55, 45, 85)}):Play()
     end)
-    
+
     return btn
 end
 
+-- Speed & Jump
+local speedCard = createCard(Scroll, 1, "WALK SPEED (16-400)", "🏃")
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0.35, 0, 0, 28)
+SpeedBox.Position = UDim2.new(0, 8, 0, 26)
+SpeedBox.Text = "16"
+SpeedBox.TextColor3 = Color3.fromRGB(255, 220, 150)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
+SpeedBox.Font = Enum.Font.GothamBold
+SpeedBox.TextSize = 14
+SpeedBox.Parent = speedCard
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = SpeedBox end)
+
+local jumpCard = createCard(Scroll, 2, "JUMP POWER (7.2-200)", "🦘")
+local JumpBox = Instance.new("TextBox")
+JumpBox.Size = UDim2.new(0.35, 0, 0, 28)
+JumpBox.Position = UDim2.new(0, 8, 0, 26)
+JumpBox.Text = "50"
+JumpBox.TextColor3 = Color3.fromRGB(255, 220, 150)
+JumpBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
+JumpBox.Font = Enum.Font.GothamBold
+JumpBox.TextSize = 14
+JumpBox.Parent = jumpCard
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = JumpBox end)
+
+-- Toggles
 local infBtn = createToggle(Scroll, 3, "INFINITE JUMP", "🌀", Color3.fromRGB(55, 40, 90))
 local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (NIGHT)", "🌙", Color3.fromRGB(90, 45, 80))
 local collectBtn = createToggle(Scroll, 5, "AUTO COLLECT", "🧺", Color3.fromRGB(55, 45, 75))
-local plantBtn = createToggle(Scroll, 6, "AUTO PLANT", "🌱", Color3.fromRGB(55, 40, 90))
-local sellBtn = createToggle(Scroll, 7, "AUTO SELL", "💰", Color3.fromRGB(55, 45, 75))
+local plantBtn = createToggle(Scroll, 6, "AUTO PLANT (SMART)", "🌱", Color3.fromRGB(55, 40, 90))
+local waterBtn = createToggle(Scroll, 7, "AUTO WATER", "💧", Color3.fromRGB(40, 70, 120))
+local harvestBtn = createToggle(Scroll, 8, "AUTO HARVEST", "🌾", Color3.fromRGB(80, 120, 60))
+local sellBtn = createToggle(Scroll, 9, "AUTO SELL ALL INVENTORY", "💰", Color3.fromRGB(55, 45, 75))
+local buyBtn = createToggle(Scroll, 10, "AUTO BUY SEED", "🛒", Color3.fromRGB(70, 50, 100))
+local afkBtn = createToggle(Scroll, 11, "ANTI AFK", "🛡️", Color3.fromRGB(60, 60, 100))
 
 local infoCard = Instance.new("Frame")
-infoCard.Size = UDim2.new(1, 0, 0, 55)
+infoCard.Size = UDim2.new(1, 0, 0, 85)
 infoCard.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
 infoCard.BackgroundTransparency = 0.4
 infoCard.BorderSizePixel = 0
-infoCard.LayoutOrder = 8
+infoCard.LayoutOrder = 12
 infoCard.Parent = Scroll
 pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = infoCard end)
 
 local nightLabel = Instance.new("TextLabel")
-nightLabel.Size = UDim2.new(1, -12, 0, 22)
+nightLabel.Size = UDim2.new(1, -12, 0, 20)
 nightLabel.Position = UDim2.new(0, 8, 0, 4)
 nightLabel.Text = "🌞 Day Time — Stealing Not Available"
 nightLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
@@ -478,28 +769,39 @@ nightLabel.TextSize = 11
 nightLabel.TextXAlignment = Enum.TextXAlignment.Left
 nightLabel.Parent = infoCard
 
-local eventLabel = Instance.new("TextLabel")
-eventLabel.Size = UDim2.new(1, -12, 0, 22)
-eventLabel.Position = UDim2.new(0, 8, 0, 28)
-eventLabel.Text = "⏳ No Active Event — Waiting"
-eventLabel.TextColor3 = Color3.fromRGB(200, 180, 250)
-eventLabel.BackgroundTransparency = 1
-eventLabel.Font = Enum.Font.Gotham
-eventLabel.TextSize = 10
-eventLabel.TextXAlignment = Enum.TextXAlignment.Left
-eventLabel.Parent = infoCard
+local statusLabel1 = Instance.new("TextLabel")
+statusLabel1.Size = UDim2.new(1, -12, 0, 20)
+statusLabel1.Position = UDim2.new(0, 8, 0, 26)
+statusLabel1.Text = "🌱 Auto Plant: Detects seeds in inventory + plants neatly"
+statusLabel1.TextColor3 = Color3.fromRGB(180, 220, 180)
+statusLabel1.BackgroundTransparency = 1
+statusLabel1.Font = Enum.Font.Gotham
+statusLabel1.TextSize = 10
+statusLabel1.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel1.Parent = infoCard
+
+local statusLabel2 = Instance.new("TextLabel")
+statusLabel2.Size = UDim2.new(1, -12, 0, 20)
+statusLabel2.Position = UDim2.new(0, 8, 0, 48)
+statusLabel2.Text = "💰 Auto Sell All: Sells all fruits/items in inventory"
+statusLabel2.TextColor3 = Color3.fromRGB(180, 220, 180)
+statusLabel2.BackgroundTransparency = 1
+statusLabel2.Font = Enum.Font.Gotham
+statusLabel2.TextSize = 10
+statusLabel2.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel2.Parent = infoCard
 
 local footer = Instance.new("TextLabel")
 footer.Size = UDim2.new(1, 0, 0, 28)
-footer.LayoutOrder = 9
-footer.Text = "💎 Drag header | ✕ Close | OFF = stop + normal movement"
+footer.LayoutOrder = 13
+footer.Text = "💎 Drag header | ✕ Close | All features work"
 footer.TextColor3 = Color3.fromRGB(120, 110, 165)
 footer.BackgroundTransparency = 1
 footer.Font = Enum.Font.Gotham
 footer.TextSize = 9
 footer.Parent = Scroll
 
--- === FLOATING BUTTON ===
+-- Floating Button (kanan atas)
 local FloatBtn = Instance.new("TextButton")
 FloatBtn.Size = UDim2.new(0, 48, 0, 48)
 FloatBtn.Position = UDim2.new(1, -58, 0, 15)
@@ -519,7 +821,7 @@ floatStroke.Thickness = 1.5
 floatStroke.Transparency = 0.5
 floatStroke.Parent = FloatBtn
 
--- Drag System
+-- Drag
 local dragActive = false
 local dragStart, frameStart
 
@@ -586,12 +888,11 @@ end)
 
 stealBtn.MouseButton1Click:Connect(function()
     AutoStealEnabled = not AutoStealEnabled
-    stealBtn.Text = "🌙 AUTO STEAL (NIGHT): " .. (AutoStealEnabled and "ON ✓" or "OFF")
+    stealBtn.Text = "🌙 AUTO STEAL: " .. (AutoStealEnabled and "ON ✓" or "OFF")
     stealBtn.BackgroundColor3 = AutoStealEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(90, 45, 80)
     if not AutoStealEnabled then
         resetMovement()
         teleportToOwnGarden()
-        print("[XodinqHUB] Auto Steal OFF - movement restored")
     end
 end)
 
@@ -599,29 +900,51 @@ collectBtn.MouseButton1Click:Connect(function()
     AutoCollectEnabled = not AutoCollectEnabled
     collectBtn.Text = "🧺 AUTO COLLECT: " .. (AutoCollectEnabled and "ON ✓" or "OFF")
     collectBtn.BackgroundColor3 = AutoCollectEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 45, 75)
-    if not AutoCollectEnabled then
-        resetMovement()
-        print("[XodinqHUB] Auto Collect OFF - movement restored")
-    end
+    if not AutoCollectEnabled then resetMovement() end
 end)
 
 plantBtn.MouseButton1Click:Connect(function()
     AutoPlantEnabled = not AutoPlantEnabled
-    plantBtn.Text = "🌱 AUTO PLANT: " .. (AutoPlantEnabled and "ON ✓" or "OFF")
+    plantBtn.Text = "🌱 AUTO PLANT (SMART): " .. (AutoPlantEnabled and "ON ✓" or "OFF")
     plantBtn.BackgroundColor3 = AutoPlantEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 40, 90)
-    if not AutoPlantEnabled then
-        resetMovement()
-    end
+    if not AutoPlantEnabled then resetMovement() end
+end)
+
+waterBtn.MouseButton1Click:Connect(function()
+    AutoWaterEnabled = not AutoWaterEnabled
+    waterBtn.Text = "💧 AUTO WATER: " .. (AutoWaterEnabled and "ON ✓" or "OFF")
+    waterBtn.BackgroundColor3 = AutoWaterEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(40, 70, 120)
+    if not AutoWaterEnabled then resetMovement() end
+end)
+
+harvestBtn.MouseButton1Click:Connect(function()
+    AutoHarvestEnabled = not AutoHarvestEnabled
+    harvestBtn.Text = "🌾 AUTO HARVEST: " .. (AutoHarvestEnabled and "ON ✓" or "OFF")
+    harvestBtn.BackgroundColor3 = AutoHarvestEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(80, 120, 60)
+    if not AutoHarvestEnabled then resetMovement() end
 end)
 
 sellBtn.MouseButton1Click:Connect(function()
     AutoSellEnabled = not AutoSellEnabled
-    sellBtn.Text = "💰 AUTO SELL: " .. (AutoSellEnabled and "ON ✓" or "OFF")
+    sellBtn.Text = "💰 AUTO SELL ALL: " .. (AutoSellEnabled and "ON ✓" or "OFF")
     sellBtn.BackgroundColor3 = AutoSellEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 45, 75)
-    if not AutoSellEnabled then
-        resetMovement()
-    end
+    if not AutoSellEnabled then resetMovement() end
 end)
 
-print("✅ XodinqHUB | PROJECT BY LAN")
-print("✅ Semua fitur: ON = jalan, OFF = mati total + karakter normal")
+buyBtn.MouseButton1Click:Connect(function()
+    AutoBuyEnabled = not AutoBuyEnabled
+    buyBtn.Text = "🛒 AUTO BUY: " .. (AutoBuyEnabled and "ON ✓" or "OFF")
+    buyBtn.BackgroundColor3 = AutoBuyEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(70, 50, 100)
+    if not AutoBuyEnabled then resetMovement() end
+end)
+
+afkBtn.MouseButton1Click:Connect(function()
+    AntiAFKEnabled = not AntiAFKEnabled
+    afkBtn.Text = "🛡️ ANTI AFK: " .. (AntiAFKEnabled and "ON ✓" or "OFF")
+    afkBtn.BackgroundColor3 = AntiAFKEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(60, 60, 100)
+end)
+
+print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE")
+print("✅ Auto Plant: Detects seeds in inventory + plants neatly")
+print("✅ Auto Sell All: Sells all fruits/items in inventory")
+print("✅ OFF = stop + normal movement")
