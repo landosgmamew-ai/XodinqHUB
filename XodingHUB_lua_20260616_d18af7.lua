@@ -1,6 +1,5 @@
--- XodinqHUB - Grow a Garden 2 (FULL FIXED - AMBIL SEED EVENT, BUKAN TANAMAN)
+-- XodinqHUB - Grow a Garden 2 (FIXED: Auto Steal ambil dulu baru balik)
 -- PROJECT BY LAN
--- Auto Collect Gold Seed (Midas Event) & Rainbow Seed (Rainbow Event) - FULL SCRIPT
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -29,8 +28,6 @@ local AntiAFKEnabled = false
 local AutoGoldSeedEnabled = false
 local AutoRainbowSeedEnabled = false
 local MyGardenPosition = nil
-local stealCount = 0
-local maxStealBeforeReturn = 2
 
 task.wait(0.5)
 MyGardenPosition = RootPart.Position
@@ -72,7 +69,7 @@ end
 -- === INSTANT COLLECT (PRIORITAS PROXIMITYPROMPT) ===
 local function instantCollect(obj)
     if not obj or not obj.Parent then return false end
-    
+
     pcall(function()
         RootPart.CFrame = CFrame.new(obj.Position.X, obj.Position.Y + 1.5, obj.Position.Z)
         task.wait(0.01)
@@ -110,7 +107,7 @@ local function instantCollect(obj)
         end)
         return true
     end
-    
+
     return false
 end
 
@@ -192,18 +189,18 @@ local function findMyPlants()
     return plants
 end
 
--- === DETEKSI GOLD & RAINBOW SEED (YANG JATUH DARI LANGIT - FIXED) ===
+-- === DETEKSI GOLD & RAINBOW SEED ===
 local function findGoldSeeds()
     local seeds = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
         if (obj:IsA("BasePart") or obj:IsA("Model")) and obj.Position then
             local name = obj.Name:lower()
             local parent = obj.Parent
-            
+
             local isSeed = name:find("seed")
             local isGold = name:find("gold") or name:find("midas")
             local isPlant = name:find("plant") or name:find("growing") or name:find("crop")
-            
+
             local isInGarden = false
             if parent then
                 local parentName = parent.Name:lower()
@@ -211,7 +208,7 @@ local function findGoldSeeds()
                     isInGarden = true
                 end
             end
-            
+
             if isSeed and isGold and not isPlant and not isInGarden then
                 table.insert(seeds, obj)
             end
@@ -226,11 +223,11 @@ local function findRainbowSeeds()
         if (obj:IsA("BasePart") or obj:IsA("Model")) and obj.Position then
             local name = obj.Name:lower()
             local parent = obj.Parent
-            
+
             local isSeed = name:find("seed")
             local isRainbow = name:find("rainbow")
             local isPlant = name:find("plant") or name:find("growing") or name:find("crop")
-            
+
             local isInGarden = false
             if parent then
                 local parentName = parent.Name:lower()
@@ -238,7 +235,7 @@ local function findRainbowSeeds()
                     isInGarden = true
                 end
             end
-            
+
             if isSeed and isRainbow and not isPlant and not isInGarden then
                 table.insert(seeds, obj)
             end
@@ -247,7 +244,7 @@ local function findRainbowSeeds()
     return seeds
 end
 
--- === DETEKSI EVENT DARI NOTIFIKASI ===
+-- === DETEKSI EVENT ===
 local function isMidasEventActive()
     local playerGui = Player:FindFirstChild("PlayerGui")
     if playerGui then
@@ -278,7 +275,7 @@ local function isRainbowEventActive()
     return false
 end
 
--- === DETEKSI OWNER GARDEN ===
+-- === DETEKSI OWNER ===
 local function isGardenOwned(gardenPos)
     for _, otherPlayer in ipairs(Players:GetPlayers()) do
         if otherPlayer ~= Player then
@@ -294,7 +291,7 @@ local function isGardenOwned(gardenPos)
     return false, nil
 end
 
--- === INVENTORY FUNCTIONS ===
+-- === INVENTORY ===
 local function getInventory()
     local inventory = Player:FindFirstChild("Inventory")
     if not inventory then
@@ -366,7 +363,7 @@ local function getFruitsFromInventory()
     return fruits
 end
 
--- === AUTO STEAL LOOP (INSTANT + RETURN AFTER 1-2 BUAH) ===
+-- === AUTO STEAL LOOP (AMBIL DULU, BARU BALIK) ===
 coroutine.wrap(function()
     while true do
         task.wait(0.2)
@@ -381,33 +378,33 @@ coroutine.wrap(function()
             end
 
             if #validTargets > 0 then
-                stealCount = 0
+                local successCount = 0
                 for _, fruit in ipairs(validTargets) do
                     if not AutoStealEnabled then break end
-                    if stealCount >= maxStealBeforeReturn then break end
-                    
+
+                    -- Fling player terdekat
                     for _, otherPlayer in ipairs(Players:GetPlayers()) do
                         if otherPlayer ~= Player then flingPlayer(otherPlayer) end
                     end
                     task.wait(0.02)
-                    
+
                     if AutoStealEnabled then
                         local success = instantCollect(fruit)
                         if success then
-                            stealCount = stealCount + 1
+                            successCount = successCount + 1
                         end
                         task.wait(0.02)
                     end
                 end
-                
-                if AutoStealEnabled and stealCount > 0 then
+
+                -- SETELAH AMBIL SEMUA BUAH (BERHASIL), BARU TELEPORT BALIK
+                if AutoStealEnabled and successCount > 0 then
                     teleportToOwnGarden()
                     task.wait(0.1)
                 end
             end
         else
             resetMovement()
-            stealCount = 0
         end
         task.wait(0.2)
     end
@@ -575,7 +572,7 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO SELL ALL INVENTORY ===
+-- === AUTO SELL ALL ===
 local function sellAllFruits()
     local fruits = getFruitsFromInventory()
     local totalSold = 0
@@ -628,7 +625,7 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO BUY LOOP ===
+-- === AUTO BUY ===
 coroutine.wrap(function()
     while true do
         task.wait(5)
@@ -883,16 +880,16 @@ pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0,
 
 -- Toggles
 local infBtn = createToggle(Scroll, 3, "INFINITE JUMP", "🌀", Color3.fromRGB(55, 40, 90))
-local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (INSTANT)", "🌙", Color3.fromRGB(90, 45, 80))
+local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (FIXED)", "🌙", Color3.fromRGB(90, 45, 80))
 local collectBtn = createToggle(Scroll, 5, "AUTO COLLECT", "🧺", Color3.fromRGB(55, 45, 75))
-local plantBtn = createToggle(Scroll, 6, "AUTO PLANT (SMART)", "🌱", Color3.fromRGB(55, 40, 90))
+local plantBtn = createToggle(Scroll, 6, "AUTO PLANT", "🌱", Color3.fromRGB(55, 40, 90))
 local waterBtn = createToggle(Scroll, 7, "AUTO WATER", "💧", Color3.fromRGB(40, 70, 120))
 local harvestBtn = createToggle(Scroll, 8, "AUTO HARVEST", "🌾", Color3.fromRGB(80, 120, 60))
 local sellBtn = createToggle(Scroll, 9, "AUTO SELL ALL", "💰", Color3.fromRGB(55, 45, 75))
-local buyBtn = createToggle(Scroll, 10, "AUTO BUY SEED", "🛒", Color3.fromRGB(70, 50, 100))
+local buyBtn = createToggle(Scroll, 10, "AUTO BUY", "🛒", Color3.fromRGB(70, 50, 100))
 local afkBtn = createToggle(Scroll, 11, "ANTI AFK", "🛡️", Color3.fromRGB(60, 60, 100))
-local goldBtn = createToggle(Scroll, 12, "AUTO GOLD SEED", "✨", Color3.fromRGB(255, 200, 50))
-local rainbowBtn = createToggle(Scroll, 13, "AUTO RAINBOW SEED", "🌈", Color3.fromRGB(255, 100, 200))
+local goldBtn = createToggle(Scroll, 12, "GOLD SEED", "✨", Color3.fromRGB(255, 200, 50))
+local rainbowBtn = createToggle(Scroll, 13, "RAINBOW SEED", "🌈", Color3.fromRGB(255, 100, 200))
 
 local infoCard = Instance.new("Frame")
 infoCard.Size = UDim2.new(1, 0, 0, 85)
@@ -914,27 +911,16 @@ nightLabel.TextSize = 11
 nightLabel.TextXAlignment = Enum.TextXAlignment.Left
 nightLabel.Parent = infoCard
 
-local statusLabel1 = Instance.new("TextLabel")
-statusLabel1.Size = UDim2.new(1, -12, 0, 20)
-statusLabel1.Position = UDim2.new(0, 8, 0, 26)
-statusLabel1.Text = "⚡ Auto Steal: Instant collect, return after 1-2 fruits"
-statusLabel1.TextColor3 = Color3.fromRGB(255, 200, 100)
-statusLabel1.BackgroundTransparency = 1
-statusLabel1.Font = Enum.Font.Gotham
-statusLabel1.TextSize = 10
-statusLabel1.TextXAlignment = Enum.TextXAlignment.Left
-statusLabel1.Parent = infoCard
-
-local statusLabel2 = Instance.new("TextLabel")
-statusLabel2.Size = UDim2.new(1, -12, 0, 20)
-statusLabel2.Position = UDim2.new(0, 8, 0, 48)
-statusLabel2.Text = "✨ Auto Gold & Rainbow: AMBIL SEED EVENT (BUKAN TANAMAN)"
-statusLabel2.TextColor3 = Color3.fromRGB(255, 200, 50)
-statusLabel2.BackgroundTransparency = 1
-statusLabel2.Font = Enum.Font.Gotham
-statusLabel2.TextSize = 10
-statusLabel2.TextXAlignment = Enum.TextXAlignment.Left
-statusLabel2.Parent = infoCard
+local statusLabel = Instance.new("TextLabel")
+statusLabel.Size = UDim2.new(1, -12, 0, 20)
+statusLabel.Position = UDim2.new(0, 8, 0, 48)
+statusLabel.Text = "✅ Auto Steal: AMBIL SEMUA BUAH DULU → baru teleport balik"
+statusLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
+statusLabel.BackgroundTransparency = 1
+statusLabel.Font = Enum.Font.Gotham
+statusLabel.TextSize = 10
+statusLabel.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel.Parent = infoCard
 
 local footer = Instance.new("TextLabel")
 footer.Size = UDim2.new(1, 0, 0, 28)
@@ -1032,7 +1018,6 @@ stealBtn.MouseButton1Click:Connect(function()
     if not AutoStealEnabled then
         resetMovement()
         teleportToOwnGarden()
-        stealCount = 0
     end
 end)
 
@@ -1099,6 +1084,6 @@ rainbowBtn.MouseButton1Click:Connect(function()
 end)
 
 print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE FIXED")
+print("✅ Auto Steal: AMBIL DULU semua buah → baru teleport balik")
 print("✅ Auto Gold & Rainbow: AMBIL SEED EVENT (bukan tanaman)")
-print("✅ Auto Steal: Instant collect, return after 1-2 fruits")
 print("✅ OFF = stop + normal movement")
