@@ -1,13 +1,13 @@
--- XodinqHUB - Grow a Garden 2 (EVENT SEED COLLECTOR - GOLD & RAINBOW)
+-- XodinqHUB - Grow a Garden 2 (INSTANT STEAL - FIXED)
 -- PROJECT BY LAN
--- Auto Collect Gold Seed (Midas Event) & Rainbow Seed (Rainbow Event)
--- Deteksi notifikasi "Gold Seed Spawn" / "Rainbow Seed Spawn", teleport & instant collect
+-- Teleport ke buah, instant collect (prioritas ProximityPrompt), balik ke garden sendiri setelah ambil 1-2 buah
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
 local Lighting = game:GetService("Lighting")
 local VirtualInputManager = game:GetService("VirtualInputManager")
 local TweenService = game:GetService("TweenService")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 
 local Player = Players.LocalPlayer
 local Character = Player.Character or Player.CharacterAdded:Wait()
@@ -29,6 +29,8 @@ local AntiAFKEnabled = false
 local AutoGoldSeedEnabled = false
 local AutoRainbowSeedEnabled = false
 local MyGardenPosition = nil
+local stealCount = 0
+local maxStealBeforeReturn = 2 -- Ambil 2 buah baru balik
 
 task.wait(0.5)
 MyGardenPosition = RootPart.Position
@@ -67,49 +69,54 @@ local function teleportToOwnGarden()
     end
 end
 
--- === INSTANT COLLECT (0.02 DETIK) ===
+-- === INSTANT COLLECT (SUPER CEPAT - PRIORITAS PROXIMITYPROMPT) ===
 local function instantCollect(obj)
-    if not obj or not obj.Parent then return end
+    if not obj or not obj.Parent then return false end
+    
+    -- Teleport ke objek (super cepat)
     pcall(function()
         RootPart.CFrame = CFrame.new(obj.Position.X, obj.Position.Y + 1.5, obj.Position.Z)
-        task.wait(0.02)
+        task.wait(0.01) -- Delay minimal
     end)
 
-    -- Method 1: ProximityPrompt (prioritas utama untuk seed yang jatuh dari langit)
+    -- METHOD 1: ProximityPrompt (PRIORITAS UTAMA - paling cepat)
     local prompt = obj:FindFirstChild("ProximityPrompt")
     if prompt then
         pcall(function()
             fireproximityprompt(prompt)
-            -- Jika ada prompt, biasanya langsung collect tanpa perlu E
-            return
+            return true
         end)
     end
 
-    -- Method 2: ClickDetector (fallback)
+    -- METHOD 2: ClickDetector (cepat)
     local click = obj:FindFirstChild("ClickDetector")
     if click then
         pcall(function() fireclickdetector(click) end)
-        return
+        return true
     end
 
-    -- Method 3: RemoteEvent
+    -- METHOD 3: RemoteEvent (fallback)
     for _, v in ipairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") then
             local name = v.Name:lower()
-            if name:find("collect") or name:find("pick") or name:find("claim") then
+            if name:find("collect") or name:find("pick") or name:find("claim") or name:find("harvest") then
                 pcall(function() v:FireServer(obj) end)
+                return true
             end
         end
     end
 
-    -- Method 4: Simulate E key (fallback terakhir)
+    -- METHOD 4: Simulate E key (fallback terakhir - tapi tetap cepat)
     if VirtualInputManager then
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, "E", false, game)
-            task.wait(0.02)
+            task.wait(0.01)
             VirtualInputManager:SendKeyEvent(false, "E", false, game)
         end)
+        return true
     end
+    
+    return false
 end
 
 -- === FLING ===
@@ -121,7 +128,7 @@ local function flingTarget(targetChar)
     bv.MaxForce = Vector3.new(1e9, 1e9, 1e9)
     bv.Velocity = Vector3.new(math.random(-500, 500), 500, math.random(-500, 500))
     bv.Parent = targetRoot
-    task.wait(0.25)
+    task.wait(0.15)
     bv:Destroy()
 end
 
@@ -190,24 +197,15 @@ local function findMyPlants()
     return plants
 end
 
--- === DETEKSI GOLD & RAINBOW SEED (YANG JATUH DARI LANGIT) ===
--- Berdasarkan hasil search:
--- Gold Seed: muncul saat Midas Event, jatuh dari langit, ada notifikasi "Gold Seed Spawn" [citation:2][citation:4][citation:7]
--- Rainbow Seed: muncul saat Rainbow Event, jatuh dari langit, ada notifikasi "Rainbow Seed Spawn" [citation:1][citation:4][citation:6]
--- Kedua event durasi 2 menit [citation:5][citation:7][citation:9]
-
+-- === DETEKSI GOLD & RAINBOW SEED ===
 local function findGoldSeeds()
     local seeds = {}
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Position then
             local name = obj.Name:lower()
-            -- Deteksi seed yang jatuh dari langit (bukan tanaman)
             if (name:find("gold") or name:find("midas")) and not name:find("plant") and not name:find("garden") then
-                -- Cek posisi: seed biasanya di tanah (Y rendah) dan bukan di dalam garden
                 local dist = (obj.Position - RootPart.Position).Magnitude
-                if dist > 5 then -- Skip yang terlalu dekat (mungkin milik sendiri)
-                    table.insert(seeds, obj)
-                end
+                if dist > 5 then table.insert(seeds, obj) end
             end
         end
     end
@@ -221,9 +219,7 @@ local function findRainbowSeeds()
             local name = obj.Name:lower()
             if (name:find("rainbow") or name:find("spectrum")) and not name:find("plant") and not name:find("garden") then
                 local dist = (obj.Position - RootPart.Position).Magnitude
-                if dist > 5 then
-                    table.insert(seeds, obj)
-                end
+                if dist > 5 then table.insert(seeds, obj) end
             end
         end
     end
@@ -243,7 +239,6 @@ local function isMidasEventActive()
             end
         end
     end
-    -- Cek juga dari Lighting (moon jadi emas saat Midas event) [citation:2][citation:4]
     return false
 end
 
@@ -262,64 +257,7 @@ local function isRainbowEventActive()
     return false
 end
 
--- === AUTO GOLD SEED LOOP (DETEKSI NOTIFIKASI + INSTANT COLLECT) ===
-coroutine.wrap(function()
-    while true do
-        task.wait(0.2)
-        if AutoGoldSeedEnabled then
-            -- Cek apakah Midas Event aktif (dari notifikasi)
-            if isMidasEventActive() then
-                local seeds = findGoldSeeds()
-                for _, seed in ipairs(seeds) do
-                    if not AutoGoldSeedEnabled then break end
-                    -- Teleport langsung ke posisi seed dan collect
-                    instantCollect(seed)
-                    task.wait(0.03)
-                end
-            else
-                -- Tetap scan seed yang mungkin terlewat
-                local seeds = findGoldSeeds()
-                for _, seed in ipairs(seeds) do
-                    if not AutoGoldSeedEnabled then break end
-                    instantCollect(seed)
-                    task.wait(0.03)
-                end
-            end
-        else
-            resetMovement()
-        end
-        task.wait(0.2)
-    end
-end)()
-
--- === AUTO RAINBOW SEED LOOP (DETEKSI NOTIFIKASI + INSTANT COLLECT) ===
-coroutine.wrap(function()
-    while true do
-        task.wait(0.2)
-        if AutoRainbowSeedEnabled then
-            if isRainbowEventActive() then
-                local seeds = findRainbowSeeds()
-                for _, seed in ipairs(seeds) do
-                    if not AutoRainbowSeedEnabled then break end
-                    instantCollect(seed)
-                    task.wait(0.03)
-                end
-            else
-                local seeds = findRainbowSeeds()
-                for _, seed in ipairs(seeds) do
-                    if not AutoRainbowSeedEnabled then break end
-                    instantCollect(seed)
-                    task.wait(0.03)
-                end
-            end
-        else
-            resetMovement()
-        end
-        task.wait(0.2)
-    end
-end)()
-
--- === AUTO STEAL LOOP (SKIP OWNER + INSTANT COLLECT) ===
+-- === DETEKSI OWNER GARDEN ===
 local function isGardenOwned(gardenPos)
     for _, otherPlayer in ipairs(Players:GetPlayers()) do
         if otherPlayer ~= Player then
@@ -335,9 +273,82 @@ local function isGardenOwned(gardenPos)
     return false, nil
 end
 
+-- === INVENTORY FUNCTIONS ===
+local function getInventory()
+    local inventory = Player:FindFirstChild("Inventory")
+    if not inventory then
+        for _, child in ipairs(Player:GetChildren()) do
+            if child.Name:lower():find("inventory") or child.Name:lower():find("backpack") then
+                inventory = child
+                break
+            end
+        end
+    end
+    return inventory
+end
+
+local function getSeedsFromInventory()
+    local seeds = {}
+    local inventory = getInventory()
+    if not inventory then return seeds end
+
+    for _, item in ipairs(inventory:GetChildren()) do
+        local name = item.Name:lower()
+        if name:find("seed") or name:find("benih") then
+            local count = 1
+            if item:IsA("IntValue") or item:IsA("NumberValue") then
+                count = item.Value
+            end
+            if count > 0 then
+                table.insert(seeds, {
+                    name = item.Name,
+                    count = count,
+                    object = item
+                })
+            end
+        end
+    end
+    return seeds
+end
+
+local function getFruitsFromInventory()
+    local fruits = {}
+    local inventory = getInventory()
+    if not inventory then return fruits end
+
+    local fruitKeywords = {"fruit", "crop", "harvest", "carrot", "tomato", "wheat", "berry", "apple", "corn", 
+                          "pumpkin", "melon", "grape", "banana", "mango", "coconut", "dragon", "pepper", "sunflower"}
+
+    for _, item in ipairs(inventory:GetChildren()) do
+        local name = item.Name:lower()
+        local isFruit = false
+        for _, keyword in ipairs(fruitKeywords) do
+            if name:find(keyword) and not name:find("seed") then
+                isFruit = true
+                break
+            end
+        end
+        if isFruit then
+            local count = 1
+            if item:IsA("IntValue") or item:IsA("NumberValue") then
+                count = item.Value
+            end
+            if count > 0 then
+                table.insert(fruits, {
+                    name = item.Name,
+                    count = count,
+                    object = item
+                })
+            end
+        end
+    end
+    return fruits
+end
+
+-- === AUTO STEAL LOOP (INSTANT + CEPAT + RETURN AFTER 1-2 BUAH) ===
 coroutine.wrap(function()
     while true do
-        task.wait(0.3)
+        task.wait(0.2)
         if AutoStealEnabled and isNightTime() then
             local targets = findFruitsToSteal()
             local validTargets = {}
@@ -349,39 +360,105 @@ coroutine.wrap(function()
             end
 
             if #validTargets > 0 then
+                stealCount = 0
                 for _, fruit in ipairs(validTargets) do
                     if not AutoStealEnabled then break end
+                    if stealCount >= maxStealBeforeReturn then break end
+                    
+                    -- Fling player terdekat
                     for _, otherPlayer in ipairs(Players:GetPlayers()) do
                         if otherPlayer ~= Player then flingPlayer(otherPlayer) end
                     end
-                    task.wait(0.05)
+                    task.wait(0.02)
+                    
                     if AutoStealEnabled then
-                        instantCollect(fruit)
-                        task.wait(0.03)
+                        -- INSTANT COLLECT (super cepat)
+                        local success = instantCollect(fruit)
+                        if success then
+                            stealCount = stealCount + 1
+                        end
+                        task.wait(0.02)
                     end
                 end
-                if AutoStealEnabled then
+                
+                -- Setelah ambil 1-2 buah, langsung balik ke garden sendiri
+                if AutoStealEnabled and stealCount > 0 then
                     teleportToOwnGarden()
-                    task.wait(0.2)
+                    task.wait(0.1)
+                end
+            end
+        else
+            resetMovement()
+            stealCount = 0
+        end
+        task.wait(0.2)
+    end
+end)()
+
+-- === AUTO GOLD SEED LOOP ===
+coroutine.wrap(function()
+    while true do
+        task.wait(0.15)
+        if AutoGoldSeedEnabled then
+            if isMidasEventActive() then
+                local seeds = findGoldSeeds()
+                for _, seed in ipairs(seeds) do
+                    if not AutoGoldSeedEnabled then break end
+                    instantCollect(seed)
+                    task.wait(0.02)
+                end
+            else
+                local seeds = findGoldSeeds()
+                for _, seed in ipairs(seeds) do
+                    if not AutoGoldSeedEnabled then break end
+                    instantCollect(seed)
+                    task.wait(0.02)
                 end
             end
         else
             resetMovement()
         end
-        task.wait(0.3)
+        task.wait(0.15)
+    end
+end)()
+
+-- === AUTO RAINBOW SEED LOOP ===
+coroutine.wrap(function()
+    while true do
+        task.wait(0.15)
+        if AutoRainbowSeedEnabled then
+            if isRainbowEventActive() then
+                local seeds = findRainbowSeeds()
+                for _, seed in ipairs(seeds) do
+                    if not AutoRainbowSeedEnabled then break end
+                    instantCollect(seed)
+                    task.wait(0.02)
+                end
+            else
+                local seeds = findRainbowSeeds()
+                for _, seed in ipairs(seeds) do
+                    if not AutoRainbowSeedEnabled then break end
+                    instantCollect(seed)
+                    task.wait(0.02)
+                end
+            end
+        else
+            resetMovement()
+        end
+        task.wait(0.15)
     end
 end)()
 
 -- === AUTO COLLECT LOOP ===
 coroutine.wrap(function()
     while true do
-        task.wait(0.3)
+        task.wait(0.2)
         if AutoCollectEnabled then
             local fruits = findMyFruits()
             for _, fruit in ipairs(fruits) do
                 if not AutoCollectEnabled then break end
                 instantCollect(fruit)
-                task.wait(0.05)
+                task.wait(0.02)
             end
         else
             resetMovement()
@@ -434,18 +511,18 @@ coroutine.wrap(function()
                 for _, plot in ipairs(emptyPlots) do
                     if not AutoPlantEnabled then break end
                     teleportTo(plot.Position)
-                    task.wait(0.1)
+                    task.wait(0.05)
                     local success = plantSeed(seed.name, plot)
                     if success then
                         if seed.object:IsA("IntValue") or seed.object:IsA("NumberValue") then
                             seed.object.Value = math.max(0, seed.object.Value - 1)
                         end
                         table.remove(emptyPlots, table.find(emptyPlots, plot))
-                        task.wait(0.15)
+                        task.wait(0.1)
                         break
                     end
                 end
-                task.wait(0.1)
+                task.wait(0.05)
             end
         else
             resetMovement()
@@ -469,7 +546,7 @@ coroutine.wrap(function()
                         end
                     end
                 end)
-                task.wait(0.1)
+                task.wait(0.05)
             end
         else
             resetMovement()
@@ -480,13 +557,13 @@ end)()
 -- === AUTO HARVEST LOOP ===
 coroutine.wrap(function()
     while true do
-        task.wait(0.5)
+        task.wait(0.3)
         if AutoHarvestEnabled then
             local fruits = findMyFruits()
             for _, fruit in ipairs(fruits) do
                 if not AutoHarvestEnabled then break end
                 instantCollect(fruit)
-                task.wait(0.05)
+                task.wait(0.02)
             end
         else
             resetMovement()
@@ -495,53 +572,6 @@ coroutine.wrap(function()
 end)()
 
 -- === AUTO SELL ALL INVENTORY ===
-local function getInventory()
-    local inventory = Player:FindFirstChild("Inventory")
-    if not inventory then
-        for _, child in ipairs(Player:GetChildren()) do
-            if child.Name:lower():find("inventory") or child.Name:lower():find("backpack") then
-                inventory = child
-                break
-            end
-        end
-    end
-    return inventory
-end
-
-local function getFruitsFromInventory()
-    local fruits = {}
-    local inventory = getInventory()
-    if not inventory then return fruits end
-
-    local fruitKeywords = {"fruit", "crop", "harvest", "carrot", "tomato", "wheat", "berry", "apple", "corn", 
-                          "pumpkin", "melon", "grape", "banana", "mango", "coconut", "dragon", "pepper", "sunflower"}
-
-    for _, item in ipairs(inventory:GetChildren()) do
-        local name = item.Name:lower()
-        local isFruit = false
-        for _, keyword in ipairs(fruitKeywords) do
-            if name:find(keyword) and not name:find("seed") then
-                isFruit = true
-                break
-            end
-        end
-        if isFruit then
-            local count = 1
-            if item:IsA("IntValue") or item:IsA("NumberValue") then
-                count = item.Value
-            end
-            if count > 0 then
-                table.insert(fruits, {
-                    name = item.Name,
-                    count = count,
-                    object = item
-                })
-            end
-        end
-    end
-    return fruits
-end
-
 local function sellAllFruits()
     local fruits = getFruitsFromInventory()
     local totalSold = 0
@@ -565,7 +595,7 @@ local function sellAllFruits()
                                 break
                             end
                         end
-                        task.wait(0.05)
+                        task.wait(0.02)
                     end
                 end
                 totalSold = totalSold + fruit.count
@@ -573,7 +603,7 @@ local function sellAllFruits()
                     fruit.object.Value = 0
                 end
             end)
-            task.wait(0.1)
+            task.wait(0.05)
         end
     end
 
@@ -623,7 +653,7 @@ coroutine.wrap(function()
         if AntiAFKEnabled then
             pcall(function()
                 Humanoid:MoveTo(RootPart.Position + Vector3.new(0, 0, 1))
-                task.wait(0.1)
+                task.wait(0.05)
                 Humanoid:MoveTo(RootPart.Position + Vector3.new(0, 0, -1))
             end)
         end
@@ -849,7 +879,7 @@ pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0,
 
 -- Toggles
 local infBtn = createToggle(Scroll, 3, "INFINITE JUMP", "🌀", Color3.fromRGB(55, 40, 90))
-local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (SMART)", "🌙", Color3.fromRGB(90, 45, 80))
+local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (INSTANT)", "🌙", Color3.fromRGB(90, 45, 80))
 local collectBtn = createToggle(Scroll, 5, "AUTO COLLECT", "🧺", Color3.fromRGB(55, 45, 75))
 local plantBtn = createToggle(Scroll, 6, "AUTO PLANT (SMART)", "🌱", Color3.fromRGB(55, 40, 90))
 local waterBtn = createToggle(Scroll, 7, "AUTO WATER", "💧", Color3.fromRGB(40, 70, 120))
@@ -883,8 +913,8 @@ nightLabel.Parent = infoCard
 local statusLabel1 = Instance.new("TextLabel")
 statusLabel1.Size = UDim2.new(1, -12, 0, 20)
 statusLabel1.Position = UDim2.new(0, 8, 0, 26)
-statusLabel1.Text = "✨ Gold Seed: Detects Midas Event notification → teleport & instant collect"
-statusLabel1.TextColor3 = Color3.fromRGB(255, 200, 50)
+statusLabel1.Text = "⚡ Auto Steal: Instant collect, return after 1-2 fruits"
+statusLabel1.TextColor3 = Color3.fromRGB(255, 200, 100)
 statusLabel1.BackgroundTransparency = 1
 statusLabel1.Font = Enum.Font.Gotham
 statusLabel1.TextSize = 10
@@ -894,8 +924,8 @@ statusLabel1.Parent = infoCard
 local statusLabel2 = Instance.new("TextLabel")
 statusLabel2.Size = UDim2.new(1, -12, 0, 20)
 statusLabel2.Position = UDim2.new(0, 8, 0, 48)
-statusLabel2.Text = "🌈 Rainbow Seed: Detects Rainbow Event notification → teleport & instant collect"
-statusLabel2.TextColor3 = Color3.fromRGB(255, 100, 200)
+statusLabel2.Text = "✨ Gold/Rainbow: Event detection → teleport & instant collect"
+statusLabel2.TextColor3 = Color3.fromRGB(180, 220, 180)
 statusLabel2.BackgroundTransparency = 1
 statusLabel2.Font = Enum.Font.Gotham
 statusLabel2.TextSize = 10
@@ -1004,6 +1034,7 @@ stealBtn.MouseButton1Click:Connect(function()
     if not AutoStealEnabled then
         resetMovement()
         teleportToOwnGarden()
+        stealCount = 0
     end
 end)
 
@@ -1070,6 +1101,6 @@ rainbowBtn.MouseButton1Click:Connect(function()
 end)
 
 print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE")
-print("✅ Auto Gold Seed: Detects Midas Event notification → instant collect")
-print("✅ Auto Rainbow Seed: Detects Rainbow Event notification → instant collect")
+print("✅ Auto Steal: Instant collect, return after 1-2 fruits")
+print("✅ Auto Gold & Rainbow: Event detection + instant collect")
 print("✅ OFF = stop + normal movement")
