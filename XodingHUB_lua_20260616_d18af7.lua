@@ -1,5 +1,6 @@
--- XodinqHUB - Grow a Garden 2 (FIXED: Auto Steal ambil dulu baru balik)
+-- XodinqHUB - Grow a Garden 2 (FULL FIXED - BACA TULISAN "OWNER" + SKIP)
 -- PROJECT BY LAN
+-- Auto Steal: Skip garden yang ada tulisan "owner" | Auto Gold/Rainbow Seed | All Features Work
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -275,8 +276,26 @@ local function isRainbowEventActive()
     return false
 end
 
--- === DETEKSI OWNER ===
+-- === DETEKSI OWNER GARDEN (BACA TULISAN "OWNER") ===
 local function isGardenOwned(gardenPos)
+    -- Method 1: Cek UI tulisan "owner" di sekitar garden
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and obj.Position then
+            local dist = (obj.Position - gardenPos).Magnitude
+            if dist < 30 then -- Cek dalam radius 30 studs dari garden
+                for _, child in ipairs(obj:GetDescendants()) do
+                    if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("BillboardGui") then
+                        local text = (child.Text or ""):lower()
+                        if text:find("owner") or text:find("milik") or text:find("owned by") then
+                            return true, nil
+                        end
+                    end
+                end
+            end
+        end
+    end
+
+    -- Method 2: Cek player terdekat (fallback)
     for _, otherPlayer in ipairs(Players:GetPlayers()) do
         if otherPlayer ~= Player then
             local otherChar = otherPlayer.Character
@@ -288,6 +307,7 @@ local function isGardenOwned(gardenPos)
             end
         end
     end
+
     return false, nil
 end
 
@@ -363,17 +383,21 @@ local function getFruitsFromInventory()
     return fruits
 end
 
--- === AUTO STEAL LOOP (AMBIL DULU, BARU BALIK) ===
+-- === AUTO STEAL LOOP (SKIP OWNER + AMBIL DULU BARU BALIK) ===
 coroutine.wrap(function()
     while true do
         task.wait(0.2)
         if AutoStealEnabled and isNightTime() then
             local targets = findFruitsToSteal()
             local validTargets = {}
+            local skippedCount = 0
+            
             for _, fruit in ipairs(targets) do
                 local hasOwner = isGardenOwned(fruit.Position)
                 if not hasOwner then
                     table.insert(validTargets, fruit)
+                else
+                    skippedCount = skippedCount + 1
                 end
             end
 
@@ -397,7 +421,7 @@ coroutine.wrap(function()
                     end
                 end
 
-                -- SETELAH AMBIL SEMUA BUAH (BERHASIL), BARU TELEPORT BALIK
+                -- Setelah ambil semua buah, teleport balik
                 if AutoStealEnabled and successCount > 0 then
                     teleportToOwnGarden()
                     task.wait(0.1)
@@ -880,7 +904,7 @@ pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0,
 
 -- Toggles
 local infBtn = createToggle(Scroll, 3, "INFINITE JUMP", "🌀", Color3.fromRGB(55, 40, 90))
-local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (FIXED)", "🌙", Color3.fromRGB(90, 45, 80))
+local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (SKIP OWNER)", "🌙", Color3.fromRGB(90, 45, 80))
 local collectBtn = createToggle(Scroll, 5, "AUTO COLLECT", "🧺", Color3.fromRGB(55, 45, 75))
 local plantBtn = createToggle(Scroll, 6, "AUTO PLANT", "🌱", Color3.fromRGB(55, 40, 90))
 local waterBtn = createToggle(Scroll, 7, "AUTO WATER", "💧", Color3.fromRGB(40, 70, 120))
@@ -911,16 +935,27 @@ nightLabel.TextSize = 11
 nightLabel.TextXAlignment = Enum.TextXAlignment.Left
 nightLabel.Parent = infoCard
 
-local statusLabel = Instance.new("TextLabel")
-statusLabel.Size = UDim2.new(1, -12, 0, 20)
-statusLabel.Position = UDim2.new(0, 8, 0, 48)
-statusLabel.Text = "✅ Auto Steal: AMBIL SEMUA BUAH DULU → baru teleport balik"
-statusLabel.TextColor3 = Color3.fromRGB(180, 220, 180)
-statusLabel.BackgroundTransparency = 1
-statusLabel.Font = Enum.Font.Gotham
-statusLabel.TextSize = 10
-statusLabel.TextXAlignment = Enum.TextXAlignment.Left
-statusLabel.Parent = infoCard
+local statusLabel1 = Instance.new("TextLabel")
+statusLabel1.Size = UDim2.new(1, -12, 0, 20)
+statusLabel1.Position = UDim2.new(0, 8, 0, 26)
+statusLabel1.Text = "✅ Auto Steal: Skip garden with 'owner' text"
+statusLabel1.TextColor3 = Color3.fromRGB(180, 220, 180)
+statusLabel1.BackgroundTransparency = 1
+statusLabel1.Font = Enum.Font.Gotham
+statusLabel1.TextSize = 10
+statusLabel1.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel1.Parent = infoCard
+
+local statusLabel2 = Instance.new("TextLabel")
+statusLabel2.Size = UDim2.new(1, -12, 0, 20)
+statusLabel2.Position = UDim2.new(0, 8, 0, 48)
+statusLabel2.Text = "✨ Auto Gold & Rainbow: AMBIL SEED EVENT (bukan tanaman)"
+statusLabel2.TextColor3 = Color3.fromRGB(255, 200, 50)
+statusLabel2.BackgroundTransparency = 1
+statusLabel2.Font = Enum.Font.Gotham
+statusLabel2.TextSize = 10
+statusLabel2.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel2.Parent = infoCard
 
 local footer = Instance.new("TextLabel")
 footer.Size = UDim2.new(1, 0, 0, 28)
@@ -1083,7 +1118,7 @@ rainbowBtn.MouseButton1Click:Connect(function()
     if not AutoRainbowSeedEnabled then resetMovement() end
 end)
 
-print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE FIXED")
-print("✅ Auto Steal: AMBIL DULU semua buah → baru teleport balik")
+print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE")
+print("✅ Auto Steal: Skip garden with 'owner' text")
 print("✅ Auto Gold & Rainbow: AMBIL SEED EVENT (bukan tanaman)")
 print("✅ OFF = stop + normal movement")
