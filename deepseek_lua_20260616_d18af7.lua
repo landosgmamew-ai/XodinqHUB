@@ -585,4 +585,491 @@ end
 coroutine.wrap(function()
     while true do
         task.wait(2)
-        if AutoSellEnable
+        if AutoSellEnabled then
+            sellAllFruits()
+        else
+            resetMovement()
+        end
+        task.wait(2)
+    end
+end)()
+
+-- === AUTO BUY LOOP ===
+coroutine.wrap(function()
+    while true do
+        task.wait(5)
+        if AutoBuyEnabled then
+            for _, shop in ipairs(workspace:GetDescendants()) do
+                if shop:IsA("Model") and shop.Name:lower():find("shop") then
+                    pcall(function()
+                        for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
+                            if v:IsA("RemoteEvent") and v.Name:lower():find("buy") then
+                                v:FireServer("Seed", "Carrot", 1)
+                            end
+                        end
+                    end)
+                end
+            end
+        else
+            resetMovement()
+        end
+    end
+end)()
+
+-- === ANTI AFK ===
+coroutine.wrap(function()
+    while true do
+        task.wait(60)
+        if AntiAFKEnabled then
+            pcall(function()
+                Humanoid:MoveTo(RootPart.Position + Vector3.new(0, 0, 1))
+                task.wait(0.1)
+                Humanoid:MoveTo(RootPart.Position + Vector3.new(0, 0, -1))
+            end)
+        end
+    end
+end)()
+
+-- === INFINITE JUMP ===
+UserInputService.JumpRequest:Connect(function()
+    if InfJumpEnabled then
+        Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
+    end
+end)
+
+-- === RESPAWN ===
+Player.CharacterAdded:Connect(function(newChar)
+    Character = newChar
+    Humanoid = Character:WaitForChild("Humanoid")
+    RootPart = Character:WaitForChild("HumanoidRootPart")
+    task.wait(0.5)
+    setSpeed(SpeedValue)
+    setJump(JumpValue)
+    MyGardenPosition = RootPart.Position
+    resetMovement()
+end)
+
+-- === PREMIUM GUI ===
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "XodinqHUB"
+ScreenGui.Parent = Player:WaitForChild("PlayerGui")
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0.9, 0, 0.85, 0)
+MainFrame.Position = UDim2.new(0.05, 0, 0.075, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(18, 16, 35)
+MainFrame.BackgroundTransparency = 0.05
+MainFrame.BorderSizePixel = 0
+MainFrame.Parent = ScreenGui
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = MainFrame end)
+
+local glass = Instance.new("Frame")
+glass.Size = UDim2.new(1, 0, 1, 0)
+glass.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+glass.BackgroundTransparency = 0.03
+glass.BorderSizePixel = 0
+glass.Parent = MainFrame
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = glass end)
+
+local stroke = Instance.new("UIStroke")
+stroke.Color = Color3.fromRGB(150, 100, 255)
+stroke.Thickness = 1.5
+stroke.Transparency = 0.4
+stroke.Parent = MainFrame
+
+local Header = Instance.new("Frame")
+Header.Size = UDim2.new(1, 0, 0, 55)
+Header.BackgroundColor3 = Color3.fromRGB(45, 35, 90)
+Header.BorderSizePixel = 0
+Header.Parent = MainFrame
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = Header end)
+
+local headerGradient = Instance.new("UIGradient")
+headerGradient.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 40, 120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 25, 80))
+}
+headerGradient.Parent = Header
+
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, -60, 0, 30)
+Title.Position = UDim2.new(0, 14, 0, 4)
+Title.Text = "⚡ XODINQ HUB"
+Title.TextColor3 = Color3.fromRGB(255, 200, 100)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.TextSize = 20
+Title.TextXAlignment = Enum.TextXAlignment.Left
+Title.Parent = Header
+
+local SubTitle = Instance.new("TextLabel")
+SubTitle.Size = UDim2.new(1, -60, 0, 18)
+SubTitle.Position = UDim2.new(0, 16, 0, 34)
+SubTitle.Text = "PROJECT BY LAN | GROW A GARDEN 2"
+SubTitle.TextColor3 = Color3.fromRGB(170, 150, 210)
+SubTitle.BackgroundTransparency = 1
+SubTitle.Font = Enum.Font.Gotham
+SubTitle.TextSize = 10
+SubTitle.TextXAlignment = Enum.TextXAlignment.Left
+SubTitle.Parent = Header
+
+local CloseBtn = Instance.new("TextButton")
+CloseBtn.Size = UDim2.new(0, 32, 0, 32)
+CloseBtn.Position = UDim2.new(1, -40, 0, 12)
+CloseBtn.Text = "✕"
+CloseBtn.TextColor3 = Color3.fromRGB(255, 150, 150)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 70)
+CloseBtn.BackgroundTransparency = 0.3
+CloseBtn.Font = Enum.Font.GothamBold
+CloseBtn.TextSize = 16
+CloseBtn.Parent = Header
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = CloseBtn end)
+
+CloseBtn.MouseEnter:Connect(function()
+    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.1}):Play()
+end)
+CloseBtn.MouseLeave:Connect(function()
+    TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.3}):Play()
+end)
+
+local glowLine = Instance.new("Frame")
+glowLine.Size = UDim2.new(0.8, 0, 0, 2)
+glowLine.Position = UDim2.new(0.1, 0, 0, 54)
+glowLine.BackgroundColor3 = Color3.fromRGB(255, 180, 80)
+glowLine.BackgroundTransparency = 0.3
+glowLine.BorderSizePixel = 0
+glowLine.Parent = Header
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = glowLine end)
+
+local Scroll = Instance.new("ScrollingFrame")
+Scroll.Size = UDim2.new(1, -12, 1, -63)
+Scroll.Position = UDim2.new(0, 6, 0, 60)
+Scroll.BackgroundTransparency = 1
+Scroll.ScrollBarThickness = 3
+Scroll.ScrollBarImageColor3 = Color3.fromRGB(150, 100, 200)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 950)
+Scroll.Parent = MainFrame
+
+local Layout = Instance.new("UIListLayout")
+Layout.Padding = UDim.new(0, 6)
+Layout.SortOrder = Enum.SortOrder.LayoutOrder
+Layout.Parent = Scroll
+
+local function createCard(parent, order, title, icon)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 60)
+    card.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
+    card.BackgroundTransparency = 0.4
+    card.BorderSizePixel = 0
+    card.LayoutOrder = order
+    card.Parent = parent
+    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = card end)
+
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = Color3.fromRGB(80, 60, 140)
+    cardStroke.Thickness = 0.5
+    cardStroke.Transparency = 0.6
+    cardStroke.Parent = card
+
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, -12, 0, 22)
+    label.Position = UDim2.new(0, 8, 0, 4)
+    label.Text = icon .. " " .. title
+    label.TextColor3 = Color3.fromRGB(220, 210, 255)
+    label.BackgroundTransparency = 1
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 12
+    label.TextXAlignment = Enum.TextXAlignment.Left
+    label.Parent = card
+    return card
+end
+
+local function createToggle(parent, order, text, icon, baseColor)
+    local card = Instance.new("Frame")
+    card.Size = UDim2.new(1, 0, 0, 40)
+    card.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
+    card.BackgroundTransparency = 0.4
+    card.BorderSizePixel = 0
+    card.LayoutOrder = order
+    card.Parent = parent
+    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = card end)
+
+    local cardStroke = Instance.new("UIStroke")
+    cardStroke.Color = Color3.fromRGB(80, 60, 140)
+    cardStroke.Thickness = 0.5
+    cardStroke.Transparency = 0.6
+    cardStroke.Parent = card
+
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(1, -12, 0, 30)
+    btn.Position = UDim2.new(0, 6, 0, 5)
+    btn.Text = icon .. " " .. text .. ": OFF"
+    btn.TextColor3 = Color3.fromRGB(240, 235, 255)
+    btn.BackgroundColor3 = baseColor or Color3.fromRGB(55, 45, 85)
+    btn.Font = Enum.Font.GothamBold
+    btn.TextSize = 11
+    btn.Parent = card
+    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = btn end)
+
+    btn.MouseEnter:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70, 55, 110)}):Play()
+    end)
+    btn.MouseLeave:Connect(function()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = baseColor or Color3.fromRGB(55, 45, 85)}):Play()
+    end)
+
+    return btn
+end
+
+-- Speed & Jump
+local speedCard = createCard(Scroll, 1, "WALK SPEED (16-400)", "🏃")
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0.35, 0, 0, 28)
+SpeedBox.Position = UDim2.new(0, 8, 0, 26)
+SpeedBox.Text = "16"
+SpeedBox.TextColor3 = Color3.fromRGB(255, 220, 150)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
+SpeedBox.Font = Enum.Font.GothamBold
+SpeedBox.TextSize = 14
+SpeedBox.Parent = speedCard
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = SpeedBox end)
+
+local jumpCard = createCard(Scroll, 2, "JUMP POWER (7.2-200)", "🦘")
+local JumpBox = Instance.new("TextBox")
+JumpBox.Size = UDim2.new(0.35, 0, 0, 28)
+JumpBox.Position = UDim2.new(0, 8, 0, 26)
+JumpBox.Text = "50"
+JumpBox.TextColor3 = Color3.fromRGB(255, 220, 150)
+JumpBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
+JumpBox.Font = Enum.Font.GothamBold
+JumpBox.TextSize = 14
+JumpBox.Parent = jumpCard
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = JumpBox end)
+
+-- Toggles
+local infBtn = createToggle(Scroll, 3, "INFINITE JUMP", "🌀", Color3.fromRGB(55, 40, 90))
+local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (SMART)", "🌙", Color3.fromRGB(90, 45, 80))
+local collectBtn = createToggle(Scroll, 5, "AUTO COLLECT", "🧺", Color3.fromRGB(55, 45, 75))
+local plantBtn = createToggle(Scroll, 6, "AUTO PLANT (SMART)", "🌱", Color3.fromRGB(55, 40, 90))
+local waterBtn = createToggle(Scroll, 7, "AUTO WATER", "💧", Color3.fromRGB(40, 70, 120))
+local harvestBtn = createToggle(Scroll, 8, "AUTO HARVEST", "🌾", Color3.fromRGB(80, 120, 60))
+local sellBtn = createToggle(Scroll, 9, "AUTO SELL ALL", "💰", Color3.fromRGB(55, 45, 75))
+local buyBtn = createToggle(Scroll, 10, "AUTO BUY SEED", "🛒", Color3.fromRGB(70, 50, 100))
+local afkBtn = createToggle(Scroll, 11, "ANTI AFK", "🛡️", Color3.fromRGB(60, 60, 100))
+local goldBtn = createToggle(Scroll, 12, "AUTO GOLD SEED", "✨", Color3.fromRGB(255, 200, 50))
+local rainbowBtn = createToggle(Scroll, 13, "AUTO RAINBOW SEED", "🌈", Color3.fromRGB(255, 100, 200))
+
+local infoCard = Instance.new("Frame")
+infoCard.Size = UDim2.new(1, 0, 0, 85)
+infoCard.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
+infoCard.BackgroundTransparency = 0.4
+infoCard.BorderSizePixel = 0
+infoCard.LayoutOrder = 14
+infoCard.Parent = Scroll
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = infoCard end)
+
+local nightLabel = Instance.new("TextLabel")
+nightLabel.Size = UDim2.new(1, -12, 0, 20)
+nightLabel.Position = UDim2.new(0, 8, 0, 4)
+nightLabel.Text = "🌞 Day Time — Stealing Not Available"
+nightLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+nightLabel.BackgroundTransparency = 1
+nightLabel.Font = Enum.Font.GothamBold
+nightLabel.TextSize = 11
+nightLabel.TextXAlignment = Enum.TextXAlignment.Left
+nightLabel.Parent = infoCard
+
+local statusLabel1 = Instance.new("TextLabel")
+statusLabel1.Size = UDim2.new(1, -12, 0, 20)
+statusLabel1.Position = UDim2.new(0, 8, 0, 26)
+statusLabel1.Text = "✨ Gold Seed: Detects Midas Event notification → teleport & instant collect"
+statusLabel1.TextColor3 = Color3.fromRGB(255, 200, 50)
+statusLabel1.BackgroundTransparency = 1
+statusLabel1.Font = Enum.Font.Gotham
+statusLabel1.TextSize = 10
+statusLabel1.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel1.Parent = infoCard
+
+local statusLabel2 = Instance.new("TextLabel")
+statusLabel2.Size = UDim2.new(1, -12, 0, 20)
+statusLabel2.Position = UDim2.new(0, 8, 0, 48)
+statusLabel2.Text = "🌈 Rainbow Seed: Detects Rainbow Event notification → teleport & instant collect"
+statusLabel2.TextColor3 = Color3.fromRGB(255, 100, 200)
+statusLabel2.BackgroundTransparency = 1
+statusLabel2.Font = Enum.Font.Gotham
+statusLabel2.TextSize = 10
+statusLabel2.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel2.Parent = infoCard
+
+local footer = Instance.new("TextLabel")
+footer.Size = UDim2.new(1, 0, 0, 28)
+footer.LayoutOrder = 15
+footer.Text = "💎 Drag header | ✕ Close | All features work"
+footer.TextColor3 = Color3.fromRGB(120, 110, 165)
+footer.BackgroundTransparency = 1
+footer.Font = Enum.Font.Gotham
+footer.TextSize = 9
+footer.Parent = Scroll
+
+-- Floating Button (kanan atas)
+local FloatBtn = Instance.new("TextButton")
+FloatBtn.Size = UDim2.new(0, 48, 0, 48)
+FloatBtn.Position = UDim2.new(1, -58, 0, 15)
+FloatBtn.Text = "⚡"
+FloatBtn.TextColor3 = Color3.fromRGB(255, 200, 100)
+FloatBtn.TextSize = 26
+FloatBtn.BackgroundColor3 = Color3.fromRGB(60, 45, 110)
+FloatBtn.BackgroundTransparency = 0.15
+FloatBtn.Font = Enum.Font.GothamBold
+FloatBtn.Visible = false
+FloatBtn.Parent = ScreenGui
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = FloatBtn end)
+
+local floatStroke = Instance.new("UIStroke")
+floatStroke.Color = Color3.fromRGB(255, 200, 100)
+floatStroke.Thickness = 1.5
+floatStroke.Transparency = 0.5
+floatStroke.Parent = FloatBtn
+
+-- Drag
+local dragActive = false
+local dragStart, frameStart
+
+Header.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragActive = true
+        dragStart = input.Position
+        frameStart = MainFrame.Position
+    end
+end)
+
+UserInputService.InputChanged:Connect(function(input)
+    if dragActive and (input.UserInputType == Enum.UserInputType.MouseMovement or input.UserInputType == Enum.UserInputType.Touch) then
+        local delta = input.Position - dragStart
+        MainFrame.Position = UDim2.new(frameStart.X.Scale, frameStart.X.Offset + delta.X, frameStart.Y.Scale, frameStart.Y.Offset + delta.Y)
+    end
+end)
+
+UserInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 or input.UserInputType == Enum.UserInputType.Touch then
+        dragActive = false
+    end
+end)
+
+-- Close & Open
+CloseBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = false
+    FloatBtn.Visible = true
+    FloatBtn:TweenSize(UDim2.new(0, 55, 0, 55), "Out", "Quad", 0.3)
+end)
+
+FloatBtn.MouseButton1Click:Connect(function()
+    MainFrame.Visible = true
+    FloatBtn.Visible = false
+end)
+
+-- Status Updates
+coroutine.wrap(function()
+    while true do
+        task.wait(0.5)
+        if isNightTime() then
+            nightLabel.Text = "🌙 NIGHT TIME — Stealing Available"
+            nightLabel.TextColor3 = Color3.fromRGB(150, 150, 255)
+        else
+            nightLabel.Text = "🌞 DAY TIME — Stealing Not Available"
+            nightLabel.TextColor3 = Color3.fromRGB(255, 200, 100)
+        end
+    end
+end)()
+
+-- Initialize
+setSpeed(16)
+setJump(50)
+
+SpeedBox.FocusLost:Connect(function() setSpeed(tonumber(SpeedBox.Text) or 16) end)
+JumpBox.FocusLost:Connect(function() setJump(tonumber(JumpBox.Text) or 50) end)
+
+-- Toggle Connections
+infBtn.MouseButton1Click:Connect(function()
+    InfJumpEnabled = not InfJumpEnabled
+    infBtn.Text = "🌀 INFINITE JUMP: " .. (InfJumpEnabled and "ON ✓" or "OFF")
+    infBtn.BackgroundColor3 = InfJumpEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 40, 90)
+end)
+
+stealBtn.MouseButton1Click:Connect(function()
+    AutoStealEnabled = not AutoStealEnabled
+    stealBtn.Text = "🌙 AUTO STEAL: " .. (AutoStealEnabled and "ON ✓" or "OFF")
+    stealBtn.BackgroundColor3 = AutoStealEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(90, 45, 80)
+    if not AutoStealEnabled then
+        resetMovement()
+        teleportToOwnGarden()
+    end
+end)
+
+collectBtn.MouseButton1Click:Connect(function()
+    AutoCollectEnabled = not AutoCollectEnabled
+    collectBtn.Text = "🧺 AUTO COLLECT: " .. (AutoCollectEnabled and "ON ✓" or "OFF")
+    collectBtn.BackgroundColor3 = AutoCollectEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 45, 75)
+    if not AutoCollectEnabled then resetMovement() end
+end)
+
+plantBtn.MouseButton1Click:Connect(function()
+    AutoPlantEnabled = not AutoPlantEnabled
+    plantBtn.Text = "🌱 AUTO PLANT: " .. (AutoPlantEnabled and "ON ✓" or "OFF")
+    plantBtn.BackgroundColor3 = AutoPlantEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 40, 90)
+    if not AutoPlantEnabled then resetMovement() end
+end)
+
+waterBtn.MouseButton1Click:Connect(function()
+    AutoWaterEnabled = not AutoWaterEnabled
+    waterBtn.Text = "💧 AUTO WATER: " .. (AutoWaterEnabled and "ON ✓" or "OFF")
+    waterBtn.BackgroundColor3 = AutoWaterEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(40, 70, 120)
+    if not AutoWaterEnabled then resetMovement() end
+end)
+
+harvestBtn.MouseButton1Click:Connect(function()
+    AutoHarvestEnabled = not AutoHarvestEnabled
+    harvestBtn.Text = "🌾 AUTO HARVEST: " .. (AutoHarvestEnabled and "ON ✓" or "OFF")
+    harvestBtn.BackgroundColor3 = AutoHarvestEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(80, 120, 60)
+    if not AutoHarvestEnabled then resetMovement() end
+end)
+
+sellBtn.MouseButton1Click:Connect(function()
+    AutoSellEnabled = not AutoSellEnabled
+    sellBtn.Text = "💰 AUTO SELL ALL: " .. (AutoSellEnabled and "ON ✓" or "OFF")
+    sellBtn.BackgroundColor3 = AutoSellEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(55, 45, 75)
+    if not AutoSellEnabled then resetMovement() end
+end)
+
+buyBtn.MouseButton1Click:Connect(function()
+    AutoBuyEnabled = not AutoBuyEnabled
+    buyBtn.Text = "🛒 AUTO BUY: " .. (AutoBuyEnabled and "ON ✓" or "OFF")
+    buyBtn.BackgroundColor3 = AutoBuyEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(70, 50, 100)
+    if not AutoBuyEnabled then resetMovement() end
+end)
+
+afkBtn.MouseButton1Click:Connect(function()
+    AntiAFKEnabled = not AntiAFKEnabled
+    afkBtn.Text = "🛡️ ANTI AFK: " .. (AntiAFKEnabled and "ON ✓" or "OFF")
+    afkBtn.BackgroundColor3 = AntiAFKEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(60, 60, 100)
+end)
+
+goldBtn.MouseButton1Click:Connect(function()
+    AutoGoldSeedEnabled = not AutoGoldSeedEnabled
+    goldBtn.Text = "✨ GOLD SEED: " .. (AutoGoldSeedEnabled and "ON ✓" or "OFF")
+    goldBtn.BackgroundColor3 = AutoGoldSeedEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(255, 200, 50)
+    if not AutoGoldSeedEnabled then resetMovement() end
+end)
+
+rainbowBtn.MouseButton1Click:Connect(function()
+    AutoRainbowSeedEnabled = not AutoRainbowSeedEnabled
+    rainbowBtn.Text = "🌈 RAINBOW SEED: " .. (AutoRainbowSeedEnabled and "ON ✓" or "OFF")
+    rainbowBtn.BackgroundColor3 = AutoRainbowSeedEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(255, 100, 200)
+    if not AutoRainbowSeedEnabled then resetMovement() end
+end)
+
+print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE")
+print("✅ Auto Gold Seed: Detects Midas Event notification → instant collect")
+print("✅ Auto Rainbow Seed: Detects Rainbow Event notification → instant collect")
+print("✅ OFF = stop + normal movement")
