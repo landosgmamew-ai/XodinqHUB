@@ -1,6 +1,6 @@
--- XodinqHUB - Grow a Garden 2 (FULL FIXED - BACA TULISAN "OWNER" + SKIP)
+-- XodinqHUB - Grow a Garden 2 (PREMIUM GUI + ALL FEATURES WORK)
 -- PROJECT BY LAN
--- Auto Steal: Skip garden yang ada tulisan "owner" | Auto Gold/Rainbow Seed | All Features Work
+-- GUI KEREN: Glassmorphism, Gradient, Glow, Animasi
 
 local Players = game:GetService("Players")
 local UserInputService = game:GetService("UserInputService")
@@ -67,29 +67,17 @@ local function teleportToOwnGarden()
     end
 end
 
--- === INSTANT COLLECT (PRIORITAS PROXIMITYPROMPT) ===
+-- === INSTANT COLLECT ===
 local function instantCollect(obj)
     if not obj or not obj.Parent then return false end
-
     pcall(function()
         RootPart.CFrame = CFrame.new(obj.Position.X, obj.Position.Y + 1.5, obj.Position.Z)
         task.wait(0.01)
     end)
-
     local prompt = obj:FindFirstChild("ProximityPrompt")
-    if prompt then
-        pcall(function()
-            fireproximityprompt(prompt)
-            return true
-        end)
-    end
-
+    if prompt then pcall(function() fireproximityprompt(prompt) end) return true end
     local click = obj:FindFirstChild("ClickDetector")
-    if click then
-        pcall(function() fireclickdetector(click) end)
-        return true
-    end
-
+    if click then pcall(function() fireclickdetector(click) end) return true end
     for _, v in ipairs(game:GetDescendants()) do
         if v:IsA("RemoteEvent") then
             local name = v.Name:lower()
@@ -99,7 +87,6 @@ local function instantCollect(obj)
             end
         end
     end
-
     if VirtualInputManager then
         pcall(function()
             VirtualInputManager:SendKeyEvent(true, "E", false, game)
@@ -108,7 +95,6 @@ local function instantCollect(obj)
         end)
         return true
     end
-
     return false
 end
 
@@ -197,11 +183,9 @@ local function findGoldSeeds()
         if (obj:IsA("BasePart") or obj:IsA("Model")) and obj.Position then
             local name = obj.Name:lower()
             local parent = obj.Parent
-
             local isSeed = name:find("seed")
             local isGold = name:find("gold") or name:find("midas")
             local isPlant = name:find("plant") or name:find("growing") or name:find("crop")
-
             local isInGarden = false
             if parent then
                 local parentName = parent.Name:lower()
@@ -209,7 +193,6 @@ local function findGoldSeeds()
                     isInGarden = true
                 end
             end
-
             if isSeed and isGold and not isPlant and not isInGarden then
                 table.insert(seeds, obj)
             end
@@ -224,11 +207,9 @@ local function findRainbowSeeds()
         if (obj:IsA("BasePart") or obj:IsA("Model")) and obj.Position then
             local name = obj.Name:lower()
             local parent = obj.Parent
-
             local isSeed = name:find("seed")
             local isRainbow = name:find("rainbow")
             local isPlant = name:find("plant") or name:find("growing") or name:find("crop")
-
             local isInGarden = false
             if parent then
                 local parentName = parent.Name:lower()
@@ -236,7 +217,6 @@ local function findRainbowSeeds()
                     isInGarden = true
                 end
             end
-
             if isSeed and isRainbow and not isPlant and not isInGarden then
                 table.insert(seeds, obj)
             end
@@ -276,13 +256,12 @@ local function isRainbowEventActive()
     return false
 end
 
--- === DETEKSI OWNER GARDEN (BACA TULISAN "OWNER") ===
+-- === DETEKSI OWNER ===
 local function isGardenOwned(gardenPos)
-    -- Method 1: Cek UI tulisan "owner" di sekitar garden
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and obj.Position then
             local dist = (obj.Position - gardenPos).Magnitude
-            if dist < 30 then -- Cek dalam radius 30 studs dari garden
+            if dist < 30 then
                 for _, child in ipairs(obj:GetDescendants()) do
                     if child:IsA("TextLabel") or child:IsA("TextButton") or child:IsA("BillboardGui") then
                         local text = (child.Text or ""):lower()
@@ -294,8 +273,6 @@ local function isGardenOwned(gardenPos)
             end
         end
     end
-
-    -- Method 2: Cek player terdekat (fallback)
     for _, otherPlayer in ipairs(Players:GetPlayers()) do
         if otherPlayer ~= Player then
             local otherChar = otherPlayer.Character
@@ -307,7 +284,6 @@ local function isGardenOwned(gardenPos)
             end
         end
     end
-
     return false, nil
 end
 
@@ -329,7 +305,6 @@ local function getSeedsFromInventory()
     local seeds = {}
     local inventory = getInventory()
     if not inventory then return seeds end
-
     for _, item in ipairs(inventory:GetChildren()) do
         local name = item.Name:lower()
         if name:find("seed") or name:find("benih") then
@@ -338,11 +313,7 @@ local function getSeedsFromInventory()
                 count = item.Value
             end
             if count > 0 then
-                table.insert(seeds, {
-                    name = item.Name,
-                    count = count,
-                    object = item
-                })
+                table.insert(seeds, {name = item.Name, count = count, object = item})
             end
         end
     end
@@ -353,10 +324,8 @@ local function getFruitsFromInventory()
     local fruits = {}
     local inventory = getInventory()
     if not inventory then return fruits end
-
     local fruitKeywords = {"fruit", "crop", "harvest", "carrot", "tomato", "wheat", "berry", "apple", "corn", 
                           "pumpkin", "melon", "grape", "banana", "mango", "coconut", "dragon", "pepper", "sunflower"}
-
     for _, item in ipairs(inventory:GetChildren()) do
         local name = item.Name:lower()
         local isFruit = false
@@ -372,56 +341,40 @@ local function getFruitsFromInventory()
                 count = item.Value
             end
             if count > 0 then
-                table.insert(fruits, {
-                    name = item.Name,
-                    count = count,
-                    object = item
-                })
+                table.insert(fruits, {name = item.Name, count = count, object = item})
             end
         end
     end
     return fruits
 end
 
--- === AUTO STEAL LOOP (SKIP OWNER + AMBIL DULU BARU BALIK) ===
+-- === AUTO LOOPS ===
 coroutine.wrap(function()
     while true do
         task.wait(0.2)
         if AutoStealEnabled and isNightTime() then
             local targets = findFruitsToSteal()
             local validTargets = {}
-            local skippedCount = 0
-            
             for _, fruit in ipairs(targets) do
                 local hasOwner = isGardenOwned(fruit.Position)
                 if not hasOwner then
                     table.insert(validTargets, fruit)
-                else
-                    skippedCount = skippedCount + 1
                 end
             end
-
             if #validTargets > 0 then
                 local successCount = 0
                 for _, fruit in ipairs(validTargets) do
                     if not AutoStealEnabled then break end
-
-                    -- Fling player terdekat
                     for _, otherPlayer in ipairs(Players:GetPlayers()) do
                         if otherPlayer ~= Player then flingPlayer(otherPlayer) end
                     end
                     task.wait(0.02)
-
                     if AutoStealEnabled then
                         local success = instantCollect(fruit)
-                        if success then
-                            successCount = successCount + 1
-                        end
+                        if success then successCount = successCount + 1 end
                         task.wait(0.02)
                     end
                 end
-
-                -- Setelah ambil semua buah, teleport balik
                 if AutoStealEnabled and successCount > 0 then
                     teleportToOwnGarden()
                     task.wait(0.1)
@@ -434,18 +387,15 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO GOLD SEED LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(0.2)
-        if AutoGoldSeedEnabled then
-            if isMidasEventActive() then
-                local seeds = findGoldSeeds()
-                for _, seed in ipairs(seeds) do
-                    if not AutoGoldSeedEnabled then break end
-                    instantCollect(seed)
-                    task.wait(0.03)
-                end
+        if AutoGoldSeedEnabled and isMidasEventActive() then
+            local seeds = findGoldSeeds()
+            for _, seed in ipairs(seeds) do
+                if not AutoGoldSeedEnabled then break end
+                instantCollect(seed)
+                task.wait(0.03)
             end
         else
             resetMovement()
@@ -454,18 +404,15 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO RAINBOW SEED LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(0.2)
-        if AutoRainbowSeedEnabled then
-            if isRainbowEventActive() then
-                local seeds = findRainbowSeeds()
-                for _, seed in ipairs(seeds) do
-                    if not AutoRainbowSeedEnabled then break end
-                    instantCollect(seed)
-                    task.wait(0.03)
-                end
+        if AutoRainbowSeedEnabled and isRainbowEventActive() then
+            local seeds = findRainbowSeeds()
+            for _, seed in ipairs(seeds) do
+                if not AutoRainbowSeedEnabled then break end
+                instantCollect(seed)
+                task.wait(0.03)
             end
         else
             resetMovement()
@@ -474,7 +421,6 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO COLLECT LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(0.2)
@@ -491,7 +437,6 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO PLANT LOOP ===
 local function plantSeed(seedName, plot)
     pcall(function()
         for _, v in ipairs(ReplicatedStorage:GetDescendants()) do
@@ -512,7 +457,6 @@ coroutine.wrap(function()
         if AutoPlantEnabled then
             local seeds = getSeedsFromInventory()
             if #seeds == 0 then task.wait(2) continue end
-
             local plots = findPlots()
             local emptyPlots = {}
             for _, plot in ipairs(plots) do
@@ -525,11 +469,9 @@ coroutine.wrap(function()
                 end
                 if not isOccupied then table.insert(emptyPlots, plot) end
             end
-
             table.sort(emptyPlots, function(a, b)
                 return (a.Position - RootPart.Position).Magnitude < (b.Position - RootPart.Position).Magnitude
             end)
-
             for _, seed in ipairs(seeds) do
                 if not AutoPlantEnabled then break end
                 if #emptyPlots == 0 then break end
@@ -556,7 +498,6 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO WATER LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(2)
@@ -579,7 +520,6 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO HARVEST LOOP ===
 coroutine.wrap(function()
     while true do
         task.wait(0.3)
@@ -596,11 +536,9 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO SELL ALL ===
 local function sellAllFruits()
     local fruits = getFruitsFromInventory()
     local totalSold = 0
-
     for _, fruit in ipairs(fruits) do
         if fruit.count > 0 then
             pcall(function()
@@ -631,7 +569,6 @@ local function sellAllFruits()
             task.wait(0.05)
         end
     end
-
     if totalSold > 0 then
         print("[XodinqHUB] Sold " .. totalSold .. " fruits/items!")
     end
@@ -649,7 +586,6 @@ coroutine.wrap(function()
     end
 end)()
 
--- === AUTO BUY ===
 coroutine.wrap(function()
     while true do
         task.wait(5)
@@ -671,7 +607,6 @@ coroutine.wrap(function()
     end
 end)()
 
--- === ANTI AFK ===
 coroutine.wrap(function()
     while true do
         task.wait(60)
@@ -685,14 +620,12 @@ coroutine.wrap(function()
     end
 end)()
 
--- === INFINITE JUMP ===
 UserInputService.JumpRequest:Connect(function()
     if InfJumpEnabled then
         Humanoid:ChangeState(Enum.HumanoidStateType.Jumping)
     end
 end)
 
--- === RESPAWN ===
 Player.CharacterAdded:Connect(function(newChar)
     Character = newChar
     Humanoid = Character:WaitForChild("Humanoid")
@@ -704,82 +637,99 @@ Player.CharacterAdded:Connect(function(newChar)
     resetMovement()
 end)
 
--- === PREMIUM GUI ===
+-- === PREMIUM GUI (GLASSMORPHISM) ===
 local ScreenGui = Instance.new("ScreenGui")
 ScreenGui.Name = "XodinqHUB"
 ScreenGui.Parent = Player:WaitForChild("PlayerGui")
 ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 
+-- Main Frame dengan Glassmorphism
 local MainFrame = Instance.new("Frame")
-MainFrame.Size = UDim2.new(0.9, 0, 0.85, 0)
-MainFrame.Position = UDim2.new(0.05, 0, 0.075, 0)
-MainFrame.BackgroundColor3 = Color3.fromRGB(18, 16, 35)
-MainFrame.BackgroundTransparency = 0.05
+MainFrame.Size = UDim2.new(0.92, 0, 0.88, 0)
+MainFrame.Position = UDim2.new(0.04, 0, 0.06, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(20, 18, 40)
+MainFrame.BackgroundTransparency = 0.15
 MainFrame.BorderSizePixel = 0
 MainFrame.Parent = ScreenGui
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = MainFrame end)
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 20) c.Parent = MainFrame end)
 
-local glass = Instance.new("Frame")
-glass.Size = UDim2.new(1, 0, 1, 0)
-glass.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-glass.BackgroundTransparency = 0.03
-glass.BorderSizePixel = 0
-glass.Parent = MainFrame
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = glass end)
+-- Glass blur effect
+local glassBlur = Instance.new("Frame")
+glassBlur.Size = UDim2.new(1, 0, 1, 0)
+glassBlur.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
+glassBlur.BackgroundTransparency = 0.03
+glassBlur.BorderSizePixel = 0
+glassBlur.Parent = MainFrame
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 20) c.Parent = glassBlur end)
 
-local stroke = Instance.new("UIStroke")
-stroke.Color = Color3.fromRGB(150, 100, 255)
-stroke.Thickness = 1.5
-stroke.Transparency = 0.4
-stroke.Parent = MainFrame
+-- Glowing border
+local glowStroke = Instance.new("UIStroke")
+glowStroke.Color = Color3.fromRGB(150, 100, 255)
+glowStroke.Thickness = 1.5
+glowStroke.Transparency = 0.3
+glowStroke.Parent = MainFrame
 
+-- Gradient overlay
+local gradientOverlay = Instance.new("UIGradient")
+gradientOverlay.Color = ColorSequence.new{
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 40, 120)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(30, 25, 70))
+}
+gradientOverlay.Rotation = 45
+gradientOverlay.Parent = MainFrame
+
+-- Header Premium
 local Header = Instance.new("Frame")
-Header.Size = UDim2.new(1, 0, 0, 55)
+Header.Size = UDim2.new(1, 0, 0, 60)
 Header.BackgroundColor3 = Color3.fromRGB(45, 35, 90)
+Header.BackgroundTransparency = 0.3
 Header.BorderSizePixel = 0
 Header.Parent = MainFrame
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 16) c.Parent = Header end)
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 20) c.Parent = Header end)
 
 local headerGradient = Instance.new("UIGradient")
 headerGradient.Color = ColorSequence.new{
-    ColorSequenceKeypoint.new(0, Color3.fromRGB(60, 40, 120)),
-    ColorSequenceKeypoint.new(1, Color3.fromRGB(40, 25, 80))
+    ColorSequenceKeypoint.new(0, Color3.fromRGB(80, 50, 180)),
+    ColorSequenceKeypoint.new(1, Color3.fromRGB(50, 30, 120))
 }
 headerGradient.Parent = Header
 
+-- Title
 local Title = Instance.new("TextLabel")
-Title.Size = UDim2.new(1, -60, 0, 30)
-Title.Position = UDim2.new(0, 14, 0, 4)
+Title.Size = UDim2.new(1, -70, 0, 30)
+Title.Position = UDim2.new(0, 16, 0, 6)
 Title.Text = "⚡ XODINQ HUB"
-Title.TextColor3 = Color3.fromRGB(255, 200, 100)
+Title.TextColor3 = Color3.fromRGB(255, 210, 100)
 Title.BackgroundTransparency = 1
 Title.Font = Enum.Font.GothamBold
-Title.TextSize = 20
+Title.TextSize = 22
 Title.TextXAlignment = Enum.TextXAlignment.Left
 Title.Parent = Header
 
+-- Subtitle with glow
 local SubTitle = Instance.new("TextLabel")
-SubTitle.Size = UDim2.new(1, -60, 0, 18)
-SubTitle.Position = UDim2.new(0, 16, 0, 34)
-SubTitle.Text = "PROJECT BY LAN | GROW A GARDEN 2"
-SubTitle.TextColor3 = Color3.fromRGB(170, 150, 210)
+SubTitle.Size = UDim2.new(1, -70, 0, 18)
+SubTitle.Position = UDim2.new(0, 18, 0, 38)
+SubTitle.Text = "PROJECT BY LAN ✦ GROW A GARDEN 2"
+SubTitle.TextColor3 = Color3.fromRGB(180, 160, 230)
 SubTitle.BackgroundTransparency = 1
 SubTitle.Font = Enum.Font.Gotham
 SubTitle.TextSize = 10
 SubTitle.TextXAlignment = Enum.TextXAlignment.Left
 SubTitle.Parent = Header
 
+-- Close Button
 local CloseBtn = Instance.new("TextButton")
-CloseBtn.Size = UDim2.new(0, 32, 0, 32)
-CloseBtn.Position = UDim2.new(1, -40, 0, 12)
+CloseBtn.Size = UDim2.new(0, 36, 0, 36)
+CloseBtn.Position = UDim2.new(1, -44, 0, 12)
 CloseBtn.Text = "✕"
 CloseBtn.TextColor3 = Color3.fromRGB(255, 150, 150)
-CloseBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 70)
+CloseBtn.BackgroundColor3 = Color3.fromRGB(80, 50, 80)
 CloseBtn.BackgroundTransparency = 0.3
 CloseBtn.Font = Enum.Font.GothamBold
-CloseBtn.TextSize = 16
+CloseBtn.TextSize = 18
 CloseBtn.Parent = Header
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = CloseBtn end)
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = CloseBtn end)
 
 CloseBtn.MouseEnter:Connect(function()
     TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.1}):Play()
@@ -788,22 +738,24 @@ CloseBtn.MouseLeave:Connect(function()
     TweenService:Create(CloseBtn, TweenInfo.new(0.15), {BackgroundTransparency = 0.3}):Play()
 end)
 
+-- Glow Line
 local glowLine = Instance.new("Frame")
-glowLine.Size = UDim2.new(0.8, 0, 0, 2)
-glowLine.Position = UDim2.new(0.1, 0, 0, 54)
+glowLine.Size = UDim2.new(0.85, 0, 0, 2)
+glowLine.Position = UDim2.new(0.075, 0, 0, 58)
 glowLine.BackgroundColor3 = Color3.fromRGB(255, 180, 80)
-glowLine.BackgroundTransparency = 0.3
+glowLine.BackgroundTransparency = 0.4
 glowLine.BorderSizePixel = 0
 glowLine.Parent = Header
 pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(1, 0) c.Parent = glowLine end)
 
+-- Scrolling Frame
 local Scroll = Instance.new("ScrollingFrame")
-Scroll.Size = UDim2.new(1, -12, 1, -63)
-Scroll.Position = UDim2.new(0, 6, 0, 60)
+Scroll.Size = UDim2.new(1, -16, 1, -72)
+Scroll.Position = UDim2.new(0, 8, 0, 64)
 Scroll.BackgroundTransparency = 1
 Scroll.ScrollBarThickness = 3
 Scroll.ScrollBarImageColor3 = Color3.fromRGB(150, 100, 200)
-Scroll.CanvasSize = UDim2.new(0, 0, 0, 950)
+Scroll.CanvasSize = UDim2.new(0, 0, 0, 900)
 Scroll.Parent = MainFrame
 
 local Layout = Instance.new("UIListLayout")
@@ -811,22 +763,23 @@ Layout.Padding = UDim.new(0, 6)
 Layout.SortOrder = Enum.SortOrder.LayoutOrder
 Layout.Parent = Scroll
 
+-- Card Helper
 local function createCard(parent, order, title, icon)
     local card = Instance.new("Frame")
     card.Size = UDim2.new(1, 0, 0, 60)
-    card.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
+    card.BackgroundColor3 = Color3.fromRGB(35, 30, 65)
     card.BackgroundTransparency = 0.4
     card.BorderSizePixel = 0
     card.LayoutOrder = order
     card.Parent = parent
-    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = card end)
-
+    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 12) c.Parent = card end)
+    
     local cardStroke = Instance.new("UIStroke")
-    cardStroke.Color = Color3.fromRGB(80, 60, 140)
+    cardStroke.Color = Color3.fromRGB(100, 70, 180)
     cardStroke.Thickness = 0.5
     cardStroke.Transparency = 0.6
     cardStroke.Parent = card
-
+    
     local label = Instance.new("TextLabel")
     label.Size = UDim2.new(1, -12, 0, 22)
     label.Position = UDim2.new(0, 8, 0, 4)
@@ -840,89 +793,120 @@ local function createCard(parent, order, title, icon)
     return card
 end
 
+-- Speed Card
+local speedCard = createCard(Scroll, 1, "WALK SPEED (16-400)", "🏃")
+local SpeedBox = Instance.new("TextBox")
+SpeedBox.Size = UDim2.new(0.35, 0, 0, 30)
+SpeedBox.Position = UDim2.new(0, 8, 0, 26)
+SpeedBox.Text = "16"
+SpeedBox.TextColor3 = Color3.fromRGB(255, 220, 150)
+SpeedBox.BackgroundColor3 = Color3.fromRGB(25, 22, 50)
+SpeedBox.Font = Enum.Font.GothamBold
+SpeedBox.TextSize = 16
+SpeedBox.Parent = speedCard
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = SpeedBox end)
+
+local speedHint = Instance.new("TextLabel")
+speedHint.Size = UDim2.new(0.25, 0, 0, 30)
+speedHint.Position = UDim2.new(0.4, 5, 0, 26)
+speedHint.Text = "MAX 400"
+speedHint.TextColor3 = Color3.fromRGB(140, 130, 180)
+speedHint.BackgroundTransparency = 1
+speedHint.Font = Enum.Font.Gotham
+speedHint.TextSize = 11
+speedHint.TextXAlignment = Enum.TextXAlignment.Left
+speedHint.Parent = speedCard
+
+-- Jump Card
+local jumpCard = createCard(Scroll, 2, "JUMP POWER (7.2-200)", "🦘")
+local JumpBox = Instance.new("TextBox")
+JumpBox.Size = UDim2.new(0.35, 0, 0, 30)
+JumpBox.Position = UDim2.new(0, 8, 0, 26)
+JumpBox.Text = "50"
+JumpBox.TextColor3 = Color3.fromRGB(255, 220, 150)
+JumpBox.BackgroundColor3 = Color3.fromRGB(25, 22, 50)
+JumpBox.Font = Enum.Font.GothamBold
+JumpBox.TextSize = 16
+JumpBox.Parent = jumpCard
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = JumpBox end)
+
+local jumpHint = Instance.new("TextLabel")
+jumpHint.Size = UDim2.new(0.25, 0, 0, 30)
+jumpHint.Position = UDim2.new(0.4, 5, 0, 26)
+jumpHint.Text = "MAX 200"
+jumpHint.TextColor3 = Color3.fromRGB(140, 130, 180)
+jumpHint.BackgroundTransparency = 1
+jumpHint.Font = Enum.Font.Gotham
+jumpHint.TextSize = 11
+jumpHint.TextXAlignment = Enum.TextXAlignment.Left
+jumpHint.Parent = jumpCard
+
+-- Toggle Helper
 local function createToggle(parent, order, text, icon, baseColor)
     local card = Instance.new("Frame")
-    card.Size = UDim2.new(1, 0, 0, 40)
-    card.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
+    card.Size = UDim2.new(1, 0, 0, 42)
+    card.BackgroundColor3 = Color3.fromRGB(35, 30, 65)
     card.BackgroundTransparency = 0.4
     card.BorderSizePixel = 0
     card.LayoutOrder = order
     card.Parent = parent
-    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = card end)
-
+    pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 12) c.Parent = card end)
+    
     local cardStroke = Instance.new("UIStroke")
-    cardStroke.Color = Color3.fromRGB(80, 60, 140)
+    cardStroke.Color = Color3.fromRGB(100, 70, 180)
     cardStroke.Thickness = 0.5
     cardStroke.Transparency = 0.6
     cardStroke.Parent = card
-
+    
     local btn = Instance.new("TextButton")
-    btn.Size = UDim2.new(1, -12, 0, 30)
+    btn.Size = UDim2.new(1, -12, 0, 32)
     btn.Position = UDim2.new(0, 6, 0, 5)
     btn.Text = icon .. " " .. text .. ": OFF"
     btn.TextColor3 = Color3.fromRGB(240, 235, 255)
     btn.BackgroundColor3 = baseColor or Color3.fromRGB(55, 45, 85)
     btn.Font = Enum.Font.GothamBold
-    btn.TextSize = 11
+    btn.TextSize = 12
     btn.Parent = card
     pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = btn end)
-
+    
     btn.MouseEnter:Connect(function()
-        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(70, 55, 110)}):Play()
+        TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = Color3.fromRGB(75, 60, 120)}):Play()
     end)
     btn.MouseLeave:Connect(function()
         TweenService:Create(btn, TweenInfo.new(0.15), {BackgroundColor3 = baseColor or Color3.fromRGB(55, 45, 85)}):Play()
     end)
-
+    
     return btn
 end
-
--- Speed & Jump
-local speedCard = createCard(Scroll, 1, "WALK SPEED (16-400)", "🏃")
-local SpeedBox = Instance.new("TextBox")
-SpeedBox.Size = UDim2.new(0.35, 0, 0, 28)
-SpeedBox.Position = UDim2.new(0, 8, 0, 26)
-SpeedBox.Text = "16"
-SpeedBox.TextColor3 = Color3.fromRGB(255, 220, 150)
-SpeedBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
-SpeedBox.Font = Enum.Font.GothamBold
-SpeedBox.TextSize = 14
-SpeedBox.Parent = speedCard
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = SpeedBox end)
-
-local jumpCard = createCard(Scroll, 2, "JUMP POWER (7.2-200)", "🦘")
-local JumpBox = Instance.new("TextBox")
-JumpBox.Size = UDim2.new(0.35, 0, 0, 28)
-JumpBox.Position = UDim2.new(0, 8, 0, 26)
-JumpBox.Text = "50"
-JumpBox.TextColor3 = Color3.fromRGB(255, 220, 150)
-JumpBox.BackgroundColor3 = Color3.fromRGB(22, 20, 45)
-JumpBox.Font = Enum.Font.GothamBold
-JumpBox.TextSize = 14
-JumpBox.Parent = jumpCard
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 8) c.Parent = JumpBox end)
 
 -- Toggles
 local infBtn = createToggle(Scroll, 3, "INFINITE JUMP", "🌀", Color3.fromRGB(55, 40, 90))
 local stealBtn = createToggle(Scroll, 4, "AUTO STEAL (SKIP OWNER)", "🌙", Color3.fromRGB(90, 45, 80))
 local collectBtn = createToggle(Scroll, 5, "AUTO COLLECT", "🧺", Color3.fromRGB(55, 45, 75))
-local plantBtn = createToggle(Scroll, 6, "AUTO PLANT", "🌱", Color3.fromRGB(55, 40, 90))
+local plantBtn = createToggle(Scroll, 6, "AUTO PLANT (SMART)", "🌱", Color3.fromRGB(55, 40, 90))
 local waterBtn = createToggle(Scroll, 7, "AUTO WATER", "💧", Color3.fromRGB(40, 70, 120))
 local harvestBtn = createToggle(Scroll, 8, "AUTO HARVEST", "🌾", Color3.fromRGB(80, 120, 60))
 local sellBtn = createToggle(Scroll, 9, "AUTO SELL ALL", "💰", Color3.fromRGB(55, 45, 75))
 local buyBtn = createToggle(Scroll, 10, "AUTO BUY", "🛒", Color3.fromRGB(70, 50, 100))
 local afkBtn = createToggle(Scroll, 11, "ANTI AFK", "🛡️", Color3.fromRGB(60, 60, 100))
-local goldBtn = createToggle(Scroll, 12, "GOLD SEED", "✨", Color3.fromRGB(255, 200, 50))
-local rainbowBtn = createToggle(Scroll, 13, "RAINBOW SEED", "🌈", Color3.fromRGB(255, 100, 200))
+local goldBtn = createToggle(Scroll, 12, "GOLD SEED (EVENT)", "✨", Color3.fromRGB(200, 170, 50))
+local rainbowBtn = createToggle(Scroll, 13, "RAINBOW SEED (EVENT)", "🌈", Color3.fromRGB(255, 100, 200))
 
+-- Info Panel
 local infoCard = Instance.new("Frame")
-infoCard.Size = UDim2.new(1, 0, 0, 85)
-infoCard.BackgroundColor3 = Color3.fromRGB(30, 26, 55)
+infoCard.Size = UDim2.new(1, 0, 0, 90)
+infoCard.BackgroundColor3 = Color3.fromRGB(35, 30, 65)
 infoCard.BackgroundTransparency = 0.4
 infoCard.BorderSizePixel = 0
 infoCard.LayoutOrder = 14
 infoCard.Parent = Scroll
-pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 10) c.Parent = infoCard end)
+pcall(function() local c = Instance.new("UICorner") c.CornerRadius = UDim.new(0, 12) c.Parent = infoCard end)
+
+local infoStroke = Instance.new("UIStroke")
+infoStroke.Color = Color3.fromRGB(100, 70, 180)
+infoStroke.Thickness = 0.5
+infoStroke.Transparency = 0.6
+infoStroke.Parent = infoCard
 
 local nightLabel = Instance.new("TextLabel")
 nightLabel.Size = UDim2.new(1, -12, 0, 20)
@@ -936,7 +920,7 @@ nightLabel.TextXAlignment = Enum.TextXAlignment.Left
 nightLabel.Parent = infoCard
 
 local statusLabel1 = Instance.new("TextLabel")
-statusLabel1.Size = UDim2.new(1, -12, 0, 20)
+statusLabel1.Size = UDim2.new(1, -12, 0, 18)
 statusLabel1.Position = UDim2.new(0, 8, 0, 26)
 statusLabel1.Text = "✅ Auto Steal: Skip garden with 'owner' text"
 statusLabel1.TextColor3 = Color3.fromRGB(180, 220, 180)
@@ -947,32 +931,44 @@ statusLabel1.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel1.Parent = infoCard
 
 local statusLabel2 = Instance.new("TextLabel")
-statusLabel2.Size = UDim2.new(1, -12, 0, 20)
-statusLabel2.Position = UDim2.new(0, 8, 0, 48)
-statusLabel2.Text = "✨ Auto Gold & Rainbow: AMBIL SEED EVENT (bukan tanaman)"
-statusLabel2.TextColor3 = Color3.fromRGB(255, 200, 50)
+statusLabel2.Size = UDim2.new(1, -12, 0, 18)
+statusLabel2.Position = UDim2.new(0, 8, 0, 46)
+statusLabel2.Text = "✨ Gold & Rainbow: Hanya ambil SEED EVENT (bukan tanaman)"
+statusLabel2.TextColor3 = Color3.fromRGB(255, 200, 100)
 statusLabel2.BackgroundTransparency = 1
 statusLabel2.Font = Enum.Font.Gotham
 statusLabel2.TextSize = 10
 statusLabel2.TextXAlignment = Enum.TextXAlignment.Left
 statusLabel2.Parent = infoCard
 
+local statusLabel3 = Instance.new("TextLabel")
+statusLabel3.Size = UDim2.new(1, -12, 0, 18)
+statusLabel3.Position = UDim2.new(0, 8, 0, 66)
+statusLabel3.Text = "⚡ OFF = stop + normal movement"
+statusLabel3.TextColor3 = Color3.fromRGB(180, 160, 220)
+statusLabel3.BackgroundTransparency = 1
+statusLabel3.Font = Enum.Font.Gotham
+statusLabel3.TextSize = 10
+statusLabel3.TextXAlignment = Enum.TextXAlignment.Left
+statusLabel3.Parent = infoCard
+
 local footer = Instance.new("TextLabel")
-footer.Size = UDim2.new(1, 0, 0, 28)
+footer.Size = UDim2.new(1, 0, 0, 30)
 footer.LayoutOrder = 15
-footer.Text = "💎 Drag header | ✕ Close | All features work"
+footer.Text = "💎 Drag header to move | ✕ to close"
 footer.TextColor3 = Color3.fromRGB(120, 110, 165)
 footer.BackgroundTransparency = 1
 footer.Font = Enum.Font.Gotham
 footer.TextSize = 9
 footer.Parent = Scroll
 
+-- Floating Button
 local FloatBtn = Instance.new("TextButton")
-FloatBtn.Size = UDim2.new(0, 48, 0, 48)
-FloatBtn.Position = UDim2.new(1, -58, 0, 15)
+FloatBtn.Size = UDim2.new(0, 50, 0, 50)
+FloatBtn.Position = UDim2.new(1, -60, 0, 20)
 FloatBtn.Text = "⚡"
 FloatBtn.TextColor3 = Color3.fromRGB(255, 200, 100)
-FloatBtn.TextSize = 26
+FloatBtn.TextSize = 28
 FloatBtn.BackgroundColor3 = Color3.fromRGB(60, 45, 110)
 FloatBtn.BackgroundTransparency = 0.15
 FloatBtn.Font = Enum.Font.GothamBold
@@ -986,6 +982,19 @@ floatStroke.Thickness = 1.5
 floatStroke.Transparency = 0.5
 floatStroke.Parent = FloatBtn
 
+-- Glow pulse animation untuk FloatBtn
+coroutine.wrap(function()
+    while true do
+        task.wait(0.5)
+        if FloatBtn.Visible then
+            TweenService:Create(floatStroke, TweenInfo.new(0.8), {Transparency = 0.2}):Play()
+            task.wait(0.8)
+            TweenService:Create(floatStroke, TweenInfo.new(0.8), {Transparency = 0.6}):Play()
+        end
+    end
+end)()
+
+-- Drag System
 local dragActive = false
 local dragStart, frameStart
 
@@ -1010,6 +1019,7 @@ UserInputService.InputEnded:Connect(function(input)
     end
 end)
 
+-- Close & Open
 CloseBtn.MouseButton1Click:Connect(function()
     MainFrame.Visible = false
     FloatBtn.Visible = true
@@ -1021,6 +1031,7 @@ FloatBtn.MouseButton1Click:Connect(function()
     FloatBtn.Visible = false
 end)
 
+-- Night Status Update
 coroutine.wrap(function()
     while true do
         task.wait(0.5)
@@ -1034,6 +1045,7 @@ coroutine.wrap(function()
     end
 end)()
 
+-- Initialize
 setSpeed(16)
 setJump(50)
 
@@ -1107,7 +1119,7 @@ end)
 goldBtn.MouseButton1Click:Connect(function()
     AutoGoldSeedEnabled = not AutoGoldSeedEnabled
     goldBtn.Text = "✨ GOLD SEED: " .. (AutoGoldSeedEnabled and "ON ✓" or "OFF")
-    goldBtn.BackgroundColor3 = AutoGoldSeedEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(255, 200, 50)
+    goldBtn.BackgroundColor3 = AutoGoldSeedEnabled and Color3.fromRGB(40, 90, 60) or Color3.fromRGB(200, 170, 50)
     if not AutoGoldSeedEnabled then resetMovement() end
 end)
 
@@ -1118,7 +1130,7 @@ rainbowBtn.MouseButton1Click:Connect(function()
     if not AutoRainbowSeedEnabled then resetMovement() end
 end)
 
-print("✅ XodinqHUB | PROJECT BY LAN | ULTIMATE")
+print("✅ XodinqHUB | PROJECT BY LAN | PREMIUM GUI")
 print("✅ Auto Steal: Skip garden with 'owner' text")
 print("✅ Auto Gold & Rainbow: AMBIL SEED EVENT (bukan tanaman)")
 print("✅ OFF = stop + normal movement")
